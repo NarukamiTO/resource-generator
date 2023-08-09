@@ -1,0 +1,10 @@
+# JetBrains IDEs
+.idea
+
+# Build artifacts
+target
+build
+cmake-build-*
+
+# Secrets
+.env
