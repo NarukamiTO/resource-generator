@@ -53,7 +53,13 @@ impl SoundResource {
     self
       .sound
       .clone()
-      .map(|file| if file.starts_with(&self.root) { file } else { self.get_root().join(file) })
+      .map(|file| {
+        if file.starts_with(&self.root) {
+          file
+        } else {
+          self.get_root().join(file)
+        }
+      })
       .unwrap_or_else(|| self.get_root().join("sound.mp3"))
   }
 }

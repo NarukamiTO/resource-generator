@@ -19,24 +19,19 @@
 mod kind;
 
 use std::{
-  io::stdout,
-  path::{Path, PathBuf},
-  sync::Arc
+  collections::HashMap, io::stdout, os::unix::fs::MetadataExt, path::Path, sync::Arc, time::Instant
 };
-use std::io::Cursor;
-use std::ops::Sub;
-use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use araumi_protocol::{Codec, protocol_buffer::{ProtocolBuffer, FinalCodec}};
+use araumi_protocol::{protocol_buffer::FinalCodec, Codec};
 use crc::{Crc, CRC_32_ISO_HDLC};
-use tokio::fs;
+use tokio::{fs, fs::File, io::AsyncWriteExt};
 use tracing::{debug, info, trace};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 use walkdir::WalkDir;
 
 use self::kind::ResourceDefinition;
-use crate::kind::{ImageResource, LocalizedImageResource, MapResource, MultiframeTextureResource, Object3DResource, ProplibResource, ResourceInfo, SoundResource, TextureResource};
+use crate::kind::{ImageResource, ResourceInfo, SoundResource, TextureResource};
 
 fn is_path_hidden<P: AsRef<Path>>(path: P) -> bool {
   path.as_ref().components().any(|component| {
@@ -72,13 +67,33 @@ async fn main() -> Result<()> {
   tracing_subscriber::registry().with(console).init();
   info!("Hello, world!");
 
+  let out = Path::new("out");
+  let root = Path::new("resources");
+
+  let mtimes_file = out.join("mtimes");
+  let mut resource_cached_mtimes = HashMap::new();
+  let mut resource_actual_mtimes = HashMap::new();
+
+  let mut mtime_skip_files = 0;
   let mut input_files = 0;
   let mut output_files = 0;
   let start = Instant::now();
 
+  if mtimes_file.try_exists().unwrap() {
+    info!("loading resource mtimes...");
+    for entry in fs::read_to_string(&mtimes_file).await.unwrap().split('\n') {
+      let entry = entry.trim();
+      if let Some((file, time)) = entry.split_once(": ") {
+        let time = time.parse::<i64>().unwrap();
+
+        debug!("{}: {}", file, time);
+        resource_cached_mtimes.insert(file.to_owned(), time);
+      }
+    }
+  }
+
   info!("scanning resources...");
   let mut resources = Vec::new();
-  let root = Path::new("resources");
   for entry in WalkDir::new(root) {
     let entry = entry.unwrap();
     let path = entry.path();
@@ -96,14 +111,64 @@ async fn main() -> Result<()> {
       }
 
       let definition = fs::read_to_string(&definition_path).await.unwrap();
-      let mut definition: ResourceDefinition = serde_yaml::from_str(&definition).expect(&format!("failed to read definition {}", definition_path.display()));
+      let mut definition: ResourceDefinition = serde_yaml::from_str(&definition).expect(&format!(
+        "failed to read definition {}",
+        definition_path.display()
+      ));
       definition.resource_mut().init_root(path.to_path_buf());
 
-      let name = path.strip_prefix(root)?.components().map(|component| component.as_os_str().to_str().unwrap()).collect::<Vec<_>>().join(".");
-      let id = CRC.checksum(name.as_bytes());
+      let name = path
+        .strip_prefix(root)?
+        .components()
+        .map(|component| component.as_os_str().to_str().unwrap())
+        .collect::<Vec<_>>()
+        .join(".");
+      let mut id = CRC.checksum(name.as_bytes());
+      if let ResourceDefinition::Object3D(resource) = &definition {
+        if let Some(forced_id) = resource.id {
+          id = forced_id;
+        }
+      }
+
+      let raw_input_files = definition.resource().input_files().await?;
+      let preprocessed_input_files = preprocess_input_files(&raw_input_files)?;
+
+      let mut mtime_input_files = preprocessed_input_files.clone();
+      mtime_input_files.push(definition_path.as_path());
+
+      let mut changed = false;
+      for file in &mtime_input_files {
+        if file.is_dir() {
+          continue;
+        }
+
+        let cache_path = file.strip_prefix(root).unwrap().to_str().unwrap();
+
+        let actual_mtime = fs::metadata(file).await.unwrap().mtime();
+        resource_actual_mtimes.insert(cache_path.to_owned(), actual_mtime);
+
+        if let Some(cached_mtime) = resource_cached_mtimes.get(cache_path) {
+          if actual_mtime == *cached_mtime {
+            debug!("{} has not changed", file.display());
+            continue;
+          }
+
+          debug!("{} has changed", file.display());
+          changed = true;
+        } else {
+          debug!("new file {}", file.display());
+          changed = true;
+        }
+      }
+
+      if !changed {
+        debug!("skipping {} as no files have been changed", name);
+        mtime_skip_files += 1;
+        continue;
+      }
 
       let mut digest = CRC.digest();
-      for file in preprocess_input_files(&definition.resource().input_files().await?)? {
+      for file in &preprocessed_input_files {
         if file.is_dir() {
           continue;
         }
@@ -161,13 +226,61 @@ async fn main() -> Result<()> {
           "Object3D" => unimplemented!("use full resource definition"),
           _ => unimplemented!("{} is not implemented", kind)
         };
-        definition.resource_mut().init_root(path.parent().unwrap().to_path_buf());
+        definition
+          .resource_mut()
+          .init_root(path.parent().unwrap().to_path_buf());
 
-        let name = path.strip_prefix(root)?.parent().unwrap().components().map(|component| component.as_os_str().to_str().unwrap()).collect::<Vec<_>>().join(".") + "." + name;
+        let name = path
+          .strip_prefix(root)?
+          .parent()
+          .unwrap()
+          .components()
+          .map(|component| component.as_os_str().to_str().unwrap())
+          .collect::<Vec<_>>()
+          .join(".")
+          + "."
+          + name;
         let id = CRC.checksum(path.to_string_lossy().to_string().as_bytes());
 
+        let raw_input_files = definition.resource().input_files().await?;
+        let preprocessed_input_files = preprocess_input_files(&raw_input_files)?;
+
+        let mut mtime_input_files = preprocessed_input_files.clone();
+        mtime_input_files.push(path);
+
+        let mut changed = false;
+        for file in &mtime_input_files {
+          if file.is_dir() {
+            continue;
+          }
+
+          let cache_path = file.strip_prefix(root).unwrap().to_str().unwrap();
+
+          let actual_mtime = fs::metadata(file).await.unwrap().mtime();
+          resource_actual_mtimes.insert(cache_path.to_owned(), actual_mtime);
+
+          if let Some(cached_mtime) = resource_cached_mtimes.get(cache_path) {
+            if actual_mtime == *cached_mtime {
+              debug!("{} has not changed", file.display());
+              continue;
+            }
+
+            debug!("{} has changed", file.display());
+            changed = true;
+          } else {
+            debug!("new file {}", file.display());
+            changed = true;
+          }
+        }
+
+        if !changed {
+          debug!("skipping {} as no files have been changed", name);
+          mtime_skip_files += 1;
+          continue;
+        }
+
         let mut digest = CRC.digest();
-        for file in preprocess_input_files(&definition.resource().input_files().await?)? {
+        for file in &preprocessed_input_files {
           if file.is_dir() {
             continue;
           }
@@ -209,16 +322,28 @@ async fn main() -> Result<()> {
     })
     .collect::<Vec<_>>();
 
-  let mut processed_resources = 0;
   info!("discovered {} resources", resources.len());
+
+  {
+    debug!("writing mtimes file...");
+    let mut mtimes_file = File::create(mtimes_file).await.unwrap();
+    for (file, mtime) in resource_actual_mtimes {
+      mtimes_file
+        .write_all(format!("{}: {}\n", file, mtime).as_bytes())
+        .await
+        .unwrap();
+    }
+    mtimes_file.flush().await.unwrap();
+  }
+
+  let mut processed_resources = 0;
   for definition in &mut resources {
     if let ResourceDefinition::Map(resource) = definition {
       resource.init_proplibs(&proplibs).await?;
     }
 
     let info = definition.resource().get_info().as_ref().unwrap();
-    let path = PathBuf::from("out")
-      .join(info.encode());
+    let path = out.join(info.encode());
     // .join(info.id.to_string())
     // .join(info.version.to_string());
     if path.try_exists()? {
@@ -237,11 +362,22 @@ async fn main() -> Result<()> {
     }
   }
 
-  fs::write("out/00-resources.json", serde_json::to_vec_pretty(&resources)?).await?;
+  fs::write(
+    "out/00-resources.json",
+    serde_json::to_vec_pretty(&resources)?
+  )
+  .await?;
 
   let end = Instant::now();
   info!("completed in {:?}", end - start);
-  info!("processed {} ({} cached) resources: generated {} files from {} files", processed_resources, resources.len() - processed_resources, output_files, input_files);
+  info!(
+    "processed {} resources ({} cached, {} not changed): generated {} files from {} files",
+    processed_resources,
+    resources.len() - processed_resources,
+    mtime_skip_files,
+    output_files,
+    input_files
+  );
 
   Ok(())
 }

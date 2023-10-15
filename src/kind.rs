@@ -50,9 +50,8 @@ pub enum ResourceDefinition {
   MultiframeTexture(MultiframeTextureResource),
   // ScalableImage, // Missing in old client
   LocalizedImage(LocalizedImageResource),
-  Object3D(Object3DResource)
-  // Effects, // Unused
-  // RawData // Unused
+  Object3D(Object3DResource) // Effects, // Unused
+                             // RawData // Unused
 }
 
 impl ResourceDefinition {

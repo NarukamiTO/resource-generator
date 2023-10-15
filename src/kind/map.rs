@@ -1,18 +1,12 @@
 use std::{
   collections::{HashMap, HashSet},
-  io::{self, Cursor},
+  fmt::{Debug, Formatter},
   path::PathBuf
 };
-use std::fmt::{Debug, Formatter};
 
 use anyhow::Result;
-use araumi_protocol::{
-  protocol_buffer::{FinalCodec, ProtocolBuffer},
-  Codec
-};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use tara::TaraArchive;
 use tokio::fs;
 use tracing::{debug, warn};
 
@@ -27,7 +21,7 @@ pub struct MapXml {
   #[serde(rename = "collision-geometry")]
   pub collision_geometry: CollisionGeometry,
   #[serde(default, rename = "spawn-points")]
-  pub spawn_points: SpawnPoints,
+  pub spawn_points: SpawnPoints
 }
 
 impl MapXml {
@@ -40,8 +34,16 @@ impl MapXml {
 
   fn as_private(&self, proplibs: &HashMap<String, ResourceDefinition>) -> PrivateMap {
     PrivateMap {
-      spawn_points: self.spawn_points.spawn_points.iter().map(|point| point.as_private()).collect(),
-      proplibs: proplibs.iter().map(|(_, definition)| definition.resource().get_info().as_ref().unwrap().clone()).collect()
+      spawn_points: self
+        .spawn_points
+        .spawn_points
+        .iter()
+        .map(|point| point.as_private())
+        .collect(),
+      proplibs: proplibs
+        .iter()
+        .map(|(_, definition)| definition.resource().get_info().as_ref().unwrap().clone())
+        .collect()
     }
   }
 }
@@ -200,7 +202,14 @@ impl Debug for MapResource {
     f.debug_struct(stringify!(MapResource))
       .field("root", &self.root)
       .field("info", &self.info)
-      .field("parsed", &if self.parsed.is_some() { "MapXml { ... }" } else { "None" })
+      .field(
+        "parsed",
+        &if self.parsed.is_some() {
+          "MapXml { ... }"
+        } else {
+          "None"
+        }
+      )
       .field("proplibs", &self.proplibs)
       .field("map", &self.map)
       .field("namespace", &self.namespace)
@@ -249,9 +258,18 @@ impl Resource for MapResource {
 
     let parsed = self.parsed.as_ref().unwrap();
     Ok(HashMap::from([
-      ("map.xml".to_owned(), quick_xml::se::to_string(&parsed.as_public())?.into_bytes()),
-      ("proplibs.xml".to_owned(), quick_xml::se::to_string(&proplibs)?.into_bytes()),
-      ("private.json".to_owned(), serde_json::to_vec_pretty(&parsed.as_private(&self.proplibs))?)
+      (
+        "map.xml".to_owned(),
+        quick_xml::se::to_string(&parsed.as_public())?.into_bytes()
+      ),
+      (
+        "proplibs.xml".to_owned(),
+        quick_xml::se::to_string(&proplibs)?.into_bytes()
+      ),
+      (
+        "private.json".to_owned(),
+        serde_json::to_vec_pretty(&parsed.as_private(&self.proplibs))?
+      )
     ]))
   }
 }
@@ -261,7 +279,13 @@ impl MapResource {
     self
       .map
       .clone()
-      .map(|file| if file.starts_with(&self.root) { file } else { self.get_root().join(file) })
+      .map(|file| {
+        if file.starts_with(&self.root) {
+          file
+        } else {
+          self.get_root().join(file)
+        }
+      })
       .unwrap_or_else(|| self.get_root().join("map.xml"))
   }
 
@@ -288,7 +312,10 @@ impl MapResource {
 
     for name in proplib_names {
       if !self.proplibs.contains_key(name) {
-        warn!("proplib {} not found for namespace {:?}", name, self.namespace);
+        warn!(
+          "proplib {} not found for namespace {:?}",
+          name, self.namespace
+        );
       }
     }
     self.parsed = Some(map);

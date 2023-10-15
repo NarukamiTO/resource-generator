@@ -1,17 +1,8 @@
-use std::{
-  collections::HashMap,
-  io::{self, Cursor},
-  path::PathBuf
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
-use araumi_protocol::{
-  protocol_buffer::{FinalCodec, ProtocolBuffer},
-  Codec
-};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use tara::TaraArchive;
 use tokio::fs;
 
 use super::Resource;
@@ -49,6 +40,7 @@ pub struct Object3DResource {
   pub root: PathBuf,
   #[serde(skip_deserializing)]
   pub info: Option<ResourceInfo>,
+  pub id: Option<u32>,
   pub object: Option<PathBuf>,
   pub images: HashMap<String, Object3DImage>
 }
@@ -147,7 +139,13 @@ impl Object3DResource {
     self
       .object
       .clone()
-      .map(|file| if file.starts_with(&self.root) { file } else { self.get_root().join(file) })
+      .map(|file| {
+        if file.starts_with(&self.root) {
+          file
+        } else {
+          self.get_root().join(file)
+        }
+      })
       .unwrap_or_else(|| self.get_root().join("object.3ds"))
   }
 }

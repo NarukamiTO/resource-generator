@@ -57,10 +57,7 @@ impl Resource for LocalizedImageResource {
     for file in self.input_files().await? {
       let file_name = file.file_name().unwrap().to_str().unwrap().to_owned();
       let (name, _) = file_name.rsplit_once('.').unwrap_or((&file_name, ""));
-      files.insert(
-        format!("{}.tnk", name),
-        fs::read(file).await.unwrap()
-      );
+      files.insert(format!("{}.tnk", name), fs::read(file).await.unwrap());
     }
 
     Ok(files)
