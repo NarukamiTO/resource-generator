@@ -19,7 +19,11 @@
 mod kind;
 
 use std::{
-  collections::HashMap, io::stdout, os::unix::fs::MetadataExt, path::Path, sync::Arc, time::Instant
+  collections::HashMap,
+  io::stdout,
+  path::Path,
+  sync::Arc,
+  time::{Instant, UNIX_EPOCH}
 };
 
 use anyhow::Result;
@@ -70,6 +74,10 @@ async fn main() -> Result<()> {
   let out = Path::new("out");
   let root = Path::new("resources");
 
+  if !out.try_exists().unwrap() {
+    fs::create_dir_all(out).await.unwrap();
+  }
+
   let mtimes_file = out.join("mtimes");
   let mut resource_cached_mtimes = HashMap::new();
   let mut resource_actual_mtimes = HashMap::new();
@@ -84,7 +92,7 @@ async fn main() -> Result<()> {
     for entry in fs::read_to_string(&mtimes_file).await.unwrap().split('\n') {
       let entry = entry.trim();
       if let Some((file, time)) = entry.split_once(": ") {
-        let time = time.parse::<i64>().unwrap();
+        let time = time.parse::<u128>().unwrap();
 
         debug!("{}: {}", file, time);
         resource_cached_mtimes.insert(file.to_owned(), time);
@@ -144,7 +152,12 @@ async fn main() -> Result<()> {
 
         let cache_path = file.strip_prefix(root).unwrap().to_str().unwrap();
 
-        let actual_mtime = fs::metadata(file).await.unwrap().mtime();
+        let actual_mtime = fs::metadata(file)
+          .await
+          .unwrap()
+          .modified()
+          .map(|time| time.duration_since(UNIX_EPOCH).unwrap().as_millis())
+          .expect("unsupported platform");
         resource_actual_mtimes.insert(cache_path.to_owned(), actual_mtime);
 
         if let Some(cached_mtime) = resource_cached_mtimes.get(cache_path) {
@@ -256,7 +269,12 @@ async fn main() -> Result<()> {
 
           let cache_path = file.strip_prefix(root).unwrap().to_str().unwrap();
 
-          let actual_mtime = fs::metadata(file).await.unwrap().mtime();
+          let actual_mtime = fs::metadata(file)
+            .await
+            .unwrap()
+            .modified()
+            .map(|time| time.duration_since(UNIX_EPOCH).unwrap().as_millis())
+            .expect("unsupported platform");
           resource_actual_mtimes.insert(cache_path.to_owned(), actual_mtime);
 
           if let Some(cached_mtime) = resource_cached_mtimes.get(cache_path) {
