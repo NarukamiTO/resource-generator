@@ -5,6 +5,7 @@ mod multiframe_texture;
 mod object3d;
 mod proplib;
 mod sound;
+mod swf_library;
 mod texture;
 
 use std::{collections::HashMap, path::PathBuf};
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize, Serializer};
 
 pub use self::{
   image::*, localized_image::*, map::*, multiframe_texture::*, object3d::*, proplib::*, sound::*,
-  texture::*
+  swf_library::*, texture::*
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -41,7 +42,7 @@ impl ResourceInfo {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ResourceDefinition {
-  // SwfLibrary, // Unused
+  SwfLibrary(SwfLibraryResource),
   Sound(SoundResource),
   Map(MapResource),
   Proplib(ProplibResource),
@@ -57,6 +58,7 @@ pub enum ResourceDefinition {
 impl ResourceDefinition {
   pub fn resource(&self) -> &dyn Resource {
     match self {
+      ResourceDefinition::SwfLibrary(resource) => resource,
       ResourceDefinition::Sound(resource) => resource,
       ResourceDefinition::Map(resource) => resource,
       ResourceDefinition::Proplib(resource) => resource,
@@ -70,6 +72,7 @@ impl ResourceDefinition {
 
   pub fn resource_mut(&mut self) -> &mut dyn Resource {
     match self {
+      ResourceDefinition::SwfLibrary(resource) => resource,
       ResourceDefinition::Sound(resource) => resource,
       ResourceDefinition::Map(resource) => resource,
       ResourceDefinition::Proplib(resource) => resource,

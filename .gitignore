@@ -8,3 +8,5 @@ cmake-build-*
 
 # Secrets
 .env
+
+out/

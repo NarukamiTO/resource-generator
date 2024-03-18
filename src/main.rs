@@ -35,7 +35,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 use walkdir::WalkDir;
 
 use self::kind::ResourceDefinition;
-use crate::kind::{ImageResource, ResourceInfo, SoundResource, TextureResource};
+use crate::kind::{ImageResource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource};
 
 fn is_path_hidden<P: AsRef<Path>>(path: P) -> bool {
   path.as_ref().components().any(|component| {
@@ -237,6 +237,11 @@ async fn main() -> Result<()> {
           "MultiframeTexture" => unimplemented!("use full resource definition"),
           "LocalizedImage" => unimplemented!("use full resource definition"),
           "Object3D" => unimplemented!("use full resource definition"),
+          "SwfLibrary" => ResourceDefinition::SwfLibrary(SwfLibraryResource {
+            root: Default::default(),
+            info: None,
+            file: Some(path.to_path_buf())
+          }),
           _ => unimplemented!("{} is not implemented", kind)
         };
         definition
