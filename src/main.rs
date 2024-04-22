@@ -25,6 +25,7 @@ use std::{
   sync::Arc,
   time::{Instant, UNIX_EPOCH}
 };
+use std::collections::HashSet;
 
 use anyhow::Result;
 use araumi_protocol::{protocol_buffer::FinalCodec, Codec};
@@ -81,6 +82,7 @@ async fn main() -> Result<()> {
   let mtimes_file = out.join("mtimes");
   let mut resource_cached_mtimes = HashMap::new();
   let mut resource_actual_mtimes = HashMap::new();
+  let mut unchanged_resources = HashSet::new();
 
   let mut mtime_skip_files = 0;
   let mut input_files = 0;
@@ -138,11 +140,11 @@ async fn main() -> Result<()> {
         }
       }
 
-      let raw_input_files = definition.resource().input_files().await?;
+      let mut raw_input_files = definition.resource().input_files().await?;
+      raw_input_files.push(definition_path.clone());
       let preprocessed_input_files = preprocess_input_files(&raw_input_files)?;
 
-      let mut mtime_input_files = preprocessed_input_files.clone();
-      mtime_input_files.push(definition_path.as_path());
+      let mtime_input_files = preprocessed_input_files.clone();
 
       let mut changed = false;
       for file in &mtime_input_files {
@@ -177,7 +179,8 @@ async fn main() -> Result<()> {
       if !changed {
         debug!("skipping {} as no files have been changed", name);
         mtime_skip_files += 1;
-        continue;
+        unchanged_resources.insert(id as i64);
+        // continue;
       }
 
       let mut digest = CRC.digest();
@@ -260,11 +263,11 @@ async fn main() -> Result<()> {
           + name;
         let id = CRC.checksum(path.to_string_lossy().to_string().as_bytes());
 
-        let raw_input_files = definition.resource().input_files().await?;
+        let mut raw_input_files = definition.resource().input_files().await?;
+        raw_input_files.push(path.to_owned());
         let preprocessed_input_files = preprocess_input_files(&raw_input_files)?;
 
-        let mut mtime_input_files = preprocessed_input_files.clone();
-        mtime_input_files.push(path);
+        let mtime_input_files = preprocessed_input_files.clone();
 
         let mut changed = false;
         for file in &mtime_input_files {
@@ -299,7 +302,8 @@ async fn main() -> Result<()> {
         if !changed {
           debug!("skipping {} as no files have been changed", name);
           mtime_skip_files += 1;
-          continue;
+          unchanged_resources.insert(id as i64);
+          // continue;
         }
 
         let mut digest = CRC.digest();
@@ -361,6 +365,11 @@ async fn main() -> Result<()> {
 
   let mut processed_resources = 0;
   for definition in &mut resources {
+    let info = definition.resource().get_info().as_ref().unwrap();
+    if unchanged_resources.contains(&info.id) {
+      continue;
+    }
+
     if let ResourceDefinition::Map(resource) = definition {
       resource.init_proplibs(&proplibs).await?;
     }
