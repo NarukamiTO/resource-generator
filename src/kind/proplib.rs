@@ -85,3 +85,66 @@ impl Resource for ProplibResource {
     Ok(HashMap::from([("library.tara".to_owned(), data)]))
   }
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename = "library")]
+pub struct Library {
+  #[serde(rename = "@name")]
+  pub name: String,
+  #[serde(rename = "prop-group")]
+  pub prop_groups: Vec<PropGroup>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PropGroup {
+  #[serde(rename = "@name")]
+  pub name: String,
+  #[serde(rename = "prop")]
+  pub props: Vec<Prop>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Prop {
+  #[serde(rename = "@name")]
+  pub name: String,
+  // Cannot use an enum, see https://github.com/tafia/quick-xml/issues/286
+  pub mesh: Option<Mesh>,
+  pub sprite: Option<Sprite>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Sprite {
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Mesh {
+  #[serde(rename = "@file")]
+  pub file: String,
+  #[serde(rename = "texture", default)]
+  pub textures: Vec<Texture>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Texture {
+  #[serde(rename = "@name")]
+  pub name: String,
+  #[serde(rename = "@diffuse-map")]
+  pub diffuse_map: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename = "images")]
+pub struct Images {
+  #[serde(rename = "image")]
+  pub images: Vec<Image>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Image {
+  #[serde(rename = "@name")]
+  pub name: String,
+  #[serde(rename = "@new-name")]
+  pub diffuse: String,
+  #[serde(rename = "@alpha")]
+  pub alpha: Option<String>,
+}

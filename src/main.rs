@@ -20,23 +20,24 @@ mod kind;
 
 use std::{
   collections::HashMap,
-  io::stdout,
-  path::Path,
+  io::{stdout, Cursor},
+  path::{Path, PathBuf},
   sync::Arc,
   time::{Instant, UNIX_EPOCH}
 };
 use std::collections::HashSet;
 
 use anyhow::Result;
+use araumi_3ds::{Editor, Main, Material, MaterialTextureMap};
 use araumi_protocol::{protocol_buffer::FinalCodec, Codec};
 use crc::{Crc, CRC_32_ISO_HDLC};
 use tokio::{fs, fs::File, io::AsyncWriteExt};
-use tracing::{debug, info, trace};
+use tracing::{debug, info, trace, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 use walkdir::WalkDir;
 
 use self::kind::ResourceDefinition;
-use crate::kind::{ImageResource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource};
+use crate::kind::{Resource, ImageResource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource, Library, Images};
 
 fn is_path_hidden<P: AsRef<Path>>(path: P) -> bool {
   path.as_ref().components().any(|component| {
@@ -349,6 +350,94 @@ async fn main() -> Result<()> {
     })
     .collect::<Vec<_>>();
 
+  info!("validating proplibs...");
+  for definition in &proplibs {
+    if let ResourceDefinition::Proplib(resource) = definition {
+      let root = resource.get_root();
+
+      let mut images: Option<Images> = None;
+      let mut library: Option<Library> = None;
+      for entry in WalkDir::new(&resource.get_root()) {
+        let entry = entry?;
+        if entry.file_type().is_dir() {
+          continue;
+        }
+        if entry.file_name() == "library.xml" {
+          debug!("found library.xml for {}", resource.get_info().as_ref().unwrap().name);
+          let content = fs::read_to_string(entry.path()).await.unwrap();
+          let deserializer = &mut quick_xml::de::Deserializer::from_str(&content);
+          library = Some(serde_path_to_error::deserialize(deserializer)?);
+        }
+        if entry.file_name() == "images.xml" {
+          debug!("found images.xml for {}", resource.get_info().as_ref().unwrap().name);
+          let content = fs::read_to_string(entry.path()).await.unwrap();
+          let deserializer = &mut quick_xml::de::Deserializer::from_str(&content);
+          images = Some(serde_path_to_error::deserialize(deserializer)?);
+        }
+      }
+
+      if let Some(images) = &images {
+        for image in &images.images {
+          info!("{:?}", image);
+
+          let file = root.join(&image.diffuse);
+          let file = file_exists_case_insensitive(&file);
+          if let Some(file) = &file {
+          } else {
+            panic!("diffuse file {:?} for texture {} not exists", file, image.name);
+          }
+
+          if let Some(alpha) = &image.alpha {
+            let file = root.join(alpha);
+            let file = file_exists_case_insensitive(&file);
+            if let Some(file) = &file {
+            } else {
+              panic!("alpha file {:?} for texture {} not exists", file, image.name);
+            }
+          }
+        }
+      }
+
+      let library = library.unwrap();
+      for group in &library.prop_groups {
+        for prop in &group.props {
+          if let Some(mesh) = &prop.mesh {
+            let mesh_file = root.join(&mesh.file);
+            let mesh_file = file_exists_case_insensitive(&mesh_file);
+            if let Some(mesh_file) = &mesh_file {
+              let data = fs::read(mesh_file).await.unwrap();
+              let mut data = Cursor::new(data.as_slice());
+              let mut parser = araumi_3ds::Parser3DS::new(&mut data);
+              let main = &parser.read_main()[0];
+              let default_texture = get_texture_map_name(&main);
+              if let Some(default_texture) = &default_texture {
+                let default_file = file_exists_case_insensitive(root.join(default_texture));
+                if let Some(default_file) = &default_file {
+                  // info!("{:?}", default_file);
+                } else {
+                  warn!("mesh {}/{}/{} ({:?}) default texture {} not exists", library.name, group.name, prop.name, mesh_file, default_texture);
+                }
+              } else {
+                panic!("mesh {}/{}/{} ({:?}) has no default texture map", library.name, group.name, prop.name, mesh_file);
+              }
+            } else {
+              panic!("mesh {}/{}/{} file {:?} not exists", library.name, group.name, prop.name, mesh_file);
+            }
+
+            // for texture in &mesh.textures {
+            //   info!("texture {:?}", texture);
+            // }
+          }
+        }
+      }
+      // info!("{:?}", library);
+      // info!("{:?}", images);
+    } else {
+      unreachable!();
+    }
+  }
+  // return Ok(());
+
   info!("discovered {} resources", resources.len());
 
   {
@@ -412,4 +501,41 @@ async fn main() -> Result<()> {
   );
 
   Ok(())
+}
+
+fn file_exists_case_insensitive<P: AsRef<Path>>(filename: P) -> Option<PathBuf> {
+  let filename_str = filename.as_ref().file_name().unwrap().to_str().unwrap().to_lowercase();
+  let parent_dir = filename.as_ref().parent().unwrap_or_else(|| Path::new("."));
+
+  for entry in WalkDir::new(parent_dir).max_depth(1) {
+    if let Ok(entry) = entry {
+      if entry.file_type().is_file() {
+        let entry_filename = entry.file_name().to_str().unwrap().to_lowercase();
+        if entry_filename == filename_str {
+          return Some(entry.into_path());
+        }
+      }
+    }
+  }
+
+  None
+}
+
+fn get_texture_map_name(main: &Main) -> Option<String> {
+  if let Main::Editor(editors) = main {
+    for editor in editors {
+      if let Editor::Material(materials) = editor {
+        for material in materials {
+          if let Material::TextureMap(texture_maps) = material {
+            for texture_map in texture_maps {
+              if let MaterialTextureMap::Name(name) = texture_map {
+                return Some(name.clone());
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  None
 }
