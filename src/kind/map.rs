@@ -1,17 +1,16 @@
 use std::{
-  collections::{HashMap, HashSet},
-  fmt::{Debug, Formatter},
-  path::PathBuf
+  collections::{HashMap, HashSet}, fmt::{Debug, Formatter}, io::Cursor, path::PathBuf
 };
 
 use anyhow::Result;
 use async_trait::async_trait;
+use proplib::{Texture, DEFAULT_TEXTURE_NAME};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use tracing::{debug, warn};
+use tracing::{debug, error, info, warn};
 
-use super::Resource;
-use crate::kind::{ResourceDefinition, ResourceInfo};
+use super::{proplib, ProplibResource, Resource};
+use crate::{file_exists_case_insensitive, get_texture_map_name, kind::{ResourceDefinition, ResourceInfo}};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename = "map")]
@@ -80,7 +79,7 @@ pub struct Prop {
   pub name: String,
   pub position: Vector3,
   pub rotation: Vector3,
-  #[serde(default, rename = "texture-name")]
+  #[serde(rename = "texture-name")]
   pub texture_name: String
 }
 
@@ -320,6 +319,130 @@ impl MapResource {
     }
     self.parsed = Some(map);
 
+    Ok(())
+  }
+
+  pub async fn validate_props(&mut self, resources: &[ResourceDefinition]) -> Result<()> {
+    info!("validating props for {:?}", self.get_info());
+
+    // build index
+    let mut props = HashMap::<(String, String, String), (&ProplibResource, &proplib::PropGroup, proplib::Prop)>::default();
+    for definition in resources {
+      if let ResourceDefinition::Proplib(resource) = definition {
+        let library = resource.library.as_ref().unwrap();
+        for group in &library.prop_groups {
+          for prop in &group.props {
+            props.insert((library.name.to_owned(), group.name.to_owned(), prop.name.to_owned()), (resource, group, prop.clone()));
+          }
+        }
+      } else {
+        unimplemented!();
+      }
+    }
+
+    let map = self.parsed.as_ref().unwrap();
+    'prop: for map_prop in &map.static_geometry.props {
+      if let Some((proplib, group, prop)) = props.get(&(map_prop.library_name.clone(), map_prop.group_name.clone(), map_prop.name.clone())) {
+        // info!("found prop {:?} in {:?}", map_prop, prop);
+        let root = proplib.get_root();
+        let library = proplib.library.as_ref().unwrap();
+        if let Some(mesh) = &prop.mesh {
+          let mesh_file = root.join(&mesh.file);
+          let mesh_file = file_exists_case_insensitive(&mesh_file);
+
+          // info!("texture-name: {:?}, prop: {:?}", map_prop.texture_name, prop.name);
+          let (texture_name, texture) = if !map_prop.texture_name.is_empty() {
+            (map_prop.texture_name.to_owned(), mesh.textures.iter().find(|texture| texture.name == map_prop.texture_name).cloned())
+          } else {
+            if let Some(mesh_file) = &mesh_file {
+              let data = fs::read(mesh_file).await.unwrap();
+              let mut data = Cursor::new(data.as_slice());
+              let mut parser = araumi_3ds::Parser3DS::new(&mut data);
+              let main = &parser.read_main()[0];
+              let default_texture = get_texture_map_name(&main);
+              if let Some(default_texture) = &default_texture {
+                (default_texture.to_owned(), Some(Texture {
+                  name: default_texture.to_owned(),
+                  diffuse_map: default_texture.to_owned()
+                }))
+
+                // let default_file = file_exists_case_insensitive(root.join(default_texture));
+                // if let Some(default_file) = &default_file {
+                //   // info!("{:?}", default_file);
+                //   (default_texture.to_owned(), Some(Texture {
+                //     name: default_texture.to_owned(),
+                //     diffuse_map: default_texture.to_string_lossy().into_owned()
+                //   }))
+                // } else {
+                //   (default_texture.to_owned(), None)
+                //   // panic!("mesh {}/{}/{} ({:?}) default texture {} not exists", library.name, group.name, prop.name, mesh_file, default_texture);
+                // }
+              } else {
+                panic!("mesh {}/{}/{} ({:?}) has no default texture map", library.name, group.name, prop.name, mesh_file);
+              }
+            } else {
+              panic!("mesh {}/{}/{} file {:?} not exists", library.name, group.name, prop.name, mesh_file);
+            }
+          };
+          // info!("texture {}: {:?}", texture_name, texture);
+
+          if let Some(texture) = &texture {
+            if let Some(images) = &proplib.images {
+              let image = images.images.iter().find(|image| image.name.to_lowercase() == texture.diffuse_map.to_lowercase());
+              // info!("texture_file: {:?}", image);
+              if let Some(image) = image {
+                // info!("{:?}", image);
+
+                let file = root.join(&image.diffuse);
+                let file = file_exists_case_insensitive(&file);
+                if let Some(file) = &file {
+                } else {
+                  panic!("diffuse file {:?} for texture {} not exists", file, image.name);
+                }
+
+                if let Some(alpha) = &image.alpha {
+                  let file = root.join(alpha);
+                  let file = file_exists_case_insensitive(&file);
+                  if let Some(file) = &file {
+                  } else {
+                    panic!("alpha file {:?} for texture {} not exists", file, image.name);
+                  }
+                }
+              } else {
+                error!("images: {:?}", images);
+                panic!("texture mapping for {:?} not exists for prop {}/{}/{}", texture, library.name, group.name, prop.name);
+              }
+              continue 'prop;
+            } else {
+              info!("texture_file: {:?}", texture.diffuse_map);
+              let file = root.join(&texture.diffuse_map);
+              let file = file_exists_case_insensitive(&file);
+              if let Some(file) = &file {
+              } else {
+                panic!("diffuse file {:?} for texture {} not exists", file, texture_name);
+              }
+              continue 'prop;
+            }
+          } else {
+            panic!("texture {} not exists for prop {}/{}/{}", texture_name, library.name, group.name, prop.name);
+          }
+
+          // let default_file = file_exists_case_insensitive(root.join(default_texture));
+          // if let Some(default_file) = &default_file {
+          //   // info!("{:?}", default_file);
+          //   default_file.to_owned()
+          // } else {
+          //   panic!("mesh {}/{}/{} ({:?}) default texture {} not exists", library.name, group.name, prop.name, mesh_file, default_texture);
+          // }
+
+          // for texture in &mesh.textures {
+          //   info!("texture {:?}", texture);
+          // }
+        }
+      } else {
+        panic!("prop {:?} not found", map_prop);
+      }
+    }
     Ok(())
   }
 }

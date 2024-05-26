@@ -338,7 +338,7 @@ async fn main() -> Result<()> {
     }
   }
 
-  let proplibs = resources
+  let mut proplibs = resources
     .iter()
     .cloned()
     .filter(|resource| {
@@ -351,12 +351,10 @@ async fn main() -> Result<()> {
     .collect::<Vec<_>>();
 
   info!("validating proplibs...");
-  for definition in &proplibs {
+  for definition in &mut proplibs {
     if let ResourceDefinition::Proplib(resource) = definition {
       let root = resource.get_root();
 
-      let mut images: Option<Images> = None;
-      let mut library: Option<Library> = None;
       for entry in WalkDir::new(&resource.get_root()) {
         let entry = entry?;
         if entry.file_type().is_dir() {
@@ -366,17 +364,17 @@ async fn main() -> Result<()> {
           debug!("found library.xml for {}", resource.get_info().as_ref().unwrap().name);
           let content = fs::read_to_string(entry.path()).await.unwrap();
           let deserializer = &mut quick_xml::de::Deserializer::from_str(&content);
-          library = Some(serde_path_to_error::deserialize(deserializer)?);
+          resource.library = Some(serde_path_to_error::deserialize(deserializer)?);
         }
         if entry.file_name() == "images.xml" {
           debug!("found images.xml for {}", resource.get_info().as_ref().unwrap().name);
           let content = fs::read_to_string(entry.path()).await.unwrap();
           let deserializer = &mut quick_xml::de::Deserializer::from_str(&content);
-          images = Some(serde_path_to_error::deserialize(deserializer)?);
+          resource.images = Some(serde_path_to_error::deserialize(deserializer)?);
         }
       }
 
-      if let Some(images) = &images {
+      if let Some(images) = &resource.images {
         for image in &images.images {
           info!("{:?}", image);
 
@@ -398,38 +396,38 @@ async fn main() -> Result<()> {
         }
       }
 
-      let library = library.unwrap();
-      for group in &library.prop_groups {
-        for prop in &group.props {
-          if let Some(mesh) = &prop.mesh {
-            let mesh_file = root.join(&mesh.file);
-            let mesh_file = file_exists_case_insensitive(&mesh_file);
-            if let Some(mesh_file) = &mesh_file {
-              let data = fs::read(mesh_file).await.unwrap();
-              let mut data = Cursor::new(data.as_slice());
-              let mut parser = araumi_3ds::Parser3DS::new(&mut data);
-              let main = &parser.read_main()[0];
-              let default_texture = get_texture_map_name(&main);
-              if let Some(default_texture) = &default_texture {
-                let default_file = file_exists_case_insensitive(root.join(default_texture));
-                if let Some(default_file) = &default_file {
-                  // info!("{:?}", default_file);
-                } else {
-                  warn!("mesh {}/{}/{} ({:?}) default texture {} not exists", library.name, group.name, prop.name, mesh_file, default_texture);
-                }
-              } else {
-                panic!("mesh {}/{}/{} ({:?}) has no default texture map", library.name, group.name, prop.name, mesh_file);
-              }
-            } else {
-              panic!("mesh {}/{}/{} file {:?} not exists", library.name, group.name, prop.name, mesh_file);
-            }
+      // let library = resource.library.as_ref().unwrap();
+      // for group in &library.prop_groups {
+      //   for prop in &group.props {
+      //     if let Some(mesh) = &prop.mesh {
+      //       let mesh_file = root.join(&mesh.file);
+      //       let mesh_file = file_exists_case_insensitive(&mesh_file);
+      //       if let Some(mesh_file) = &mesh_file {
+      //         let data = fs::read(mesh_file).await.unwrap();
+      //         let mut data = Cursor::new(data.as_slice());
+      //         let mut parser = araumi_3ds::Parser3DS::new(&mut data);
+      //         let main = &parser.read_main()[0];
+      //         let default_texture = get_texture_map_name(&main);
+      //         if let Some(default_texture) = &default_texture {
+      //           let default_file = file_exists_case_insensitive(root.join(default_texture));
+      //           if let Some(default_file) = &default_file {
+      //             // info!("{:?}", default_file);
+      //           } else {
+      //             warn!("mesh {}/{}/{} ({:?}) default texture {} not exists", library.name, group.name, prop.name, mesh_file, default_texture);
+      //           }
+      //         } else {
+      //           panic!("mesh {}/{}/{} ({:?}) has no default texture map", library.name, group.name, prop.name, mesh_file);
+      //         }
+      //       } else {
+      //         panic!("mesh {}/{}/{} file {:?} not exists", library.name, group.name, prop.name, mesh_file);
+      //       }
 
-            // for texture in &mesh.textures {
-            //   info!("texture {:?}", texture);
-            // }
-          }
-        }
-      }
+      //       // for texture in &mesh.textures {
+      //       //   info!("texture {:?}", texture);
+      //       // }
+      //     }
+      //   }
+      // }
       // info!("{:?}", library);
       // info!("{:?}", images);
     } else {
@@ -461,6 +459,7 @@ async fn main() -> Result<()> {
 
     if let ResourceDefinition::Map(resource) = definition {
       resource.init_proplibs(&proplibs).await?;
+      resource.validate_props(&proplibs).await?;
     }
 
     let info = definition.resource().get_info().as_ref().unwrap();
@@ -474,7 +473,8 @@ async fn main() -> Result<()> {
     fs::create_dir_all(&path).await?;
     processed_resources += 1;
 
-    info!("writing output files for {:?}", definition);
+    info!("writing output files for {:?}", info);
+    debug!("writing output files for {:?}", definition);
     for (name, data) in &definition.resource().output_files().await? {
       fs::write(path.join(name), data).await?;
       debug!("written {}:{}/{}", info.id, info.version, name);

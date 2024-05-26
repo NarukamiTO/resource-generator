@@ -26,8 +26,17 @@ pub struct ProplibResource {
   #[serde(skip_deserializing)]
   pub name: Option<String>,
 
-  pub namespace: Option<String>
+  pub namespace: Option<String>,
+
+  #[serde(skip)]
+  pub library: Option<Library>,
+  #[serde(skip)]
+  pub images: Option<Images>,
+  #[serde(skip)]
+  pub used_files: Vec<PathBuf>
 }
+
+pub const DEFAULT_TEXTURE_NAME: &str = "$$$_DEFAULT_TEXTURE_$$$";
 
 #[async_trait]
 impl Resource for ProplibResource {
@@ -86,7 +95,7 @@ impl Resource for ProplibResource {
   }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename = "library")]
 pub struct Library {
   #[serde(rename = "@name")]
@@ -95,7 +104,7 @@ pub struct Library {
   pub prop_groups: Vec<PropGroup>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct PropGroup {
   #[serde(rename = "@name")]
   pub name: String,
@@ -103,7 +112,7 @@ pub struct PropGroup {
   pub props: Vec<Prop>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Prop {
   #[serde(rename = "@name")]
   pub name: String,
@@ -112,11 +121,11 @@ pub struct Prop {
   pub sprite: Option<Sprite>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Sprite {
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Mesh {
   #[serde(rename = "@file")]
   pub file: String,
@@ -124,7 +133,7 @@ pub struct Mesh {
   pub textures: Vec<Texture>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Texture {
   #[serde(rename = "@name")]
   pub name: String,
@@ -132,14 +141,14 @@ pub struct Texture {
   pub diffuse_map: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename = "images")]
 pub struct Images {
   #[serde(rename = "image")]
   pub images: Vec<Image>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Image {
   #[serde(rename = "@name")]
   pub name: String,
