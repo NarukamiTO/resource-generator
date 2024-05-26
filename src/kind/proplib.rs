@@ -1,4 +1,5 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -8,13 +9,14 @@ use tokio::fs;
 use walkdir::WalkDir;
 
 use super::Resource;
-use crate::{kind::ResourceInfo, RESOURCE_DEFINITION_FILE};
+use crate::kind::ResourceInfo;
+use crate::RESOURCE_DEFINITION_FILE;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename = "library")]
 pub struct LibraryXml {
   #[serde(rename = "@name")]
-  pub name: String
+  pub name: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -33,10 +35,8 @@ pub struct ProplibResource {
   #[serde(skip)]
   pub images: Option<Images>,
   #[serde(skip)]
-  pub used_files: Vec<PathBuf>
+  pub used_files: Vec<PathBuf>,
 }
-
-pub const DEFAULT_TEXTURE_NAME: &str = "$$$_DEFAULT_TEXTURE_$$$";
 
 #[async_trait]
 impl Resource for ProplibResource {
@@ -65,7 +65,7 @@ impl Resource for ProplibResource {
 
   async fn input_files(&self) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    for entry in WalkDir::new(&self.get_root()) {
+    for entry in WalkDir::new(self.get_root()) {
       let entry = entry?;
       if entry.file_type().is_dir() {
         continue;
@@ -84,7 +84,7 @@ impl Resource for ProplibResource {
     for file in self.input_files().await? {
       archive.add_entry(
         file.file_name().unwrap().to_str().unwrap().to_owned(),
-        fs::read(file).await.unwrap()
+        fs::read(file).await.unwrap(),
       );
     }
 
@@ -122,8 +122,7 @@ pub struct Prop {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Sprite {
-}
+pub struct Sprite {}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Mesh {

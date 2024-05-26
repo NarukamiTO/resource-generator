@@ -1,4 +1,5 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -7,14 +8,15 @@ use tokio::fs;
 use walkdir::WalkDir;
 
 use super::Resource;
-use crate::{kind::ResourceInfo, RESOURCE_DEFINITION_FILE};
+use crate::kind::ResourceInfo;
+use crate::RESOURCE_DEFINITION_FILE;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LocalizedImageResource {
   #[serde(skip_deserializing)]
   pub root: PathBuf,
   #[serde(skip_deserializing)]
-  pub info: Option<ResourceInfo>
+  pub info: Option<ResourceInfo>,
 }
 
 #[async_trait]
@@ -38,7 +40,7 @@ impl Resource for LocalizedImageResource {
 
   async fn input_files(&self) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    for entry in WalkDir::new(&self.get_root()) {
+    for entry in WalkDir::new(self.get_root()) {
       let entry = entry?;
       if entry.file_type().is_dir() {
         continue;

@@ -8,22 +8,28 @@ mod sound;
 mod swf_library;
 mod texture;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize, Serializer};
 
-pub use self::{
-  image::*, localized_image::*, map::*, multiframe_texture::*, object3d::*, proplib::*, sound::*,
-  swf_library::*, texture::*
-};
+pub use self::image::*;
+pub use self::localized_image::*;
+pub use self::map::*;
+pub use self::multiframe_texture::*;
+pub use self::object3d::*;
+pub use self::proplib::*;
+pub use self::sound::*;
+pub use self::swf_library::*;
+pub use self::texture::*;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ResourceInfo {
   pub name: String,
   pub id: i64,
-  pub version: i64
+  pub version: i64,
 }
 
 impl ResourceInfo {
@@ -51,8 +57,8 @@ pub enum ResourceDefinition {
   MultiframeTexture(MultiframeTextureResource),
   // ScalableImage, // Missing in old client
   LocalizedImage(LocalizedImageResource),
-  Object3D(Object3DResource) // Effects, // Unused
-                             // RawData // Unused
+  Object3D(Object3DResource), // Effects, // Unused
+                              // RawData // Unused
 }
 
 impl ResourceDefinition {
@@ -66,7 +72,7 @@ impl ResourceDefinition {
       ResourceDefinition::Image(resource) => resource,
       ResourceDefinition::MultiframeTexture(resource) => resource,
       ResourceDefinition::LocalizedImage(resource) => resource,
-      ResourceDefinition::Object3D(resource) => resource
+      ResourceDefinition::Object3D(resource) => resource,
     }
   }
 
@@ -80,7 +86,7 @@ impl ResourceDefinition {
       ResourceDefinition::Image(resource) => resource,
       ResourceDefinition::MultiframeTexture(resource) => resource,
       ResourceDefinition::LocalizedImage(resource) => resource,
-      ResourceDefinition::Object3D(resource) => resource
+      ResourceDefinition::Object3D(resource) => resource,
     }
   }
 }
@@ -130,7 +136,7 @@ impl From<&ResourceKind> for i32 {
       LocalizedImage => 13,
       Object3D => 17,
       Effects => 25,
-      RawData => 400
+      RawData => 400,
     }
   }
 }

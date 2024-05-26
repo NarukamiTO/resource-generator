@@ -1,14 +1,10 @@
-use std::{
-  collections::HashMap,
-  io::{self, Cursor},
-  path::PathBuf
-};
+use std::collections::HashMap;
+use std::io::{self, Cursor};
+use std::path::PathBuf;
 
 use anyhow::Result;
-use araumi_protocol::{
-  protocol_buffer::{FinalCodec, ProtocolBuffer},
-  Codec
-};
+use araumi_protocol::protocol_buffer::{FinalCodec, ProtocolBuffer};
+use araumi_protocol::Codec;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tara::TaraArchive;
@@ -24,7 +20,7 @@ pub struct MultiframeTextureProperties {
   pub frame_width: i32,
   pub image_height: i32,
   pub image_width: i32,
-  pub frames: i16
+  pub frames: i16,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -35,7 +31,7 @@ pub struct MultiframeTextureResource {
   pub info: Option<ResourceInfo>,
   pub diffuse: Option<PathBuf>,
   pub alpha: Option<PathBuf>,
-  pub properties: MultiframeTextureProperties
+  pub properties: MultiframeTextureProperties,
 }
 
 #[async_trait]

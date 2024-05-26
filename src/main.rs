@@ -18,26 +18,26 @@
 
 mod kind;
 
-use std::{
-  collections::HashMap,
-  io::{stdout, Cursor},
-  path::{Path, PathBuf},
-  sync::Arc,
-  time::{Instant, UNIX_EPOCH}
-};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::io::stdout;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::{Instant, UNIX_EPOCH};
 
 use anyhow::Result;
 use araumi_3ds::{Editor, Main, Material, MaterialTextureMap};
-use araumi_protocol::{protocol_buffer::FinalCodec, Codec};
 use crc::{Crc, CRC_32_ISO_HDLC};
-use tokio::{fs, fs::File, io::AsyncWriteExt};
-use tracing::{debug, info, trace, warn};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tokio::fs;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
+use tracing::{debug, info, trace};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer};
 use walkdir::WalkDir;
 
 use self::kind::ResourceDefinition;
-use crate::kind::{Resource, ImageResource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource, Library, Images};
+use crate::kind::{ImageResource, Resource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource};
 
 fn is_path_hidden<P: AsRef<Path>>(path: P) -> bool {
   path.as_ref().components().any(|component| {
@@ -62,7 +62,7 @@ fn preprocess_input_files<P: AsRef<Path>>(paths: &[P]) -> Result<Vec<&Path>> {
   Ok(result)
 }
 
-pub static RESOURCE_DEFINITION_FILE: &'static str = "resource.yaml";
+pub static RESOURCE_DEFINITION_FILE: &str = "resource.yaml";
 pub static CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_ISO_HDLC);
 
 #[tokio::main]
@@ -122,10 +122,8 @@ async fn main() -> Result<()> {
       }
 
       let definition = fs::read_to_string(&definition_path).await.unwrap();
-      let mut definition: ResourceDefinition = serde_yaml::from_str(&definition).expect(&format!(
-        "failed to read definition {}",
-        definition_path.display()
-      ));
+      let mut definition: ResourceDefinition = serde_yaml::from_str(&definition)
+        .unwrap_or_else(|_| panic!("failed to read definition {}", definition_path.display()));
       definition.resource_mut().init_root(path.to_path_buf());
 
       let name = path
@@ -201,7 +199,7 @@ async fn main() -> Result<()> {
         .init(ResourceInfo {
           name: name.clone(),
           id: id as i64,
-          version: version as i64
+          version: version as i64,
         })
         .await?;
       debug!(
@@ -224,19 +222,19 @@ async fn main() -> Result<()> {
           "Sound" => ResourceDefinition::Sound(SoundResource {
             root: Default::default(),
             info: None,
-            sound: Some(path.to_path_buf())
+            sound: Some(path.to_path_buf()),
           }),
           "Map" => unimplemented!("use full resource definition"),
           "Proplib" => unimplemented!("use full resource definition"),
           "Texture" => ResourceDefinition::Texture(TextureResource {
             root: Default::default(),
             info: None,
-            diffuse: Some(path.to_path_buf())
+            diffuse: Some(path.to_path_buf()),
           }),
           "Image" => ResourceDefinition::Image(ImageResource {
             root: Default::default(),
             info: None,
-            image: Some(path.to_path_buf())
+            image: Some(path.to_path_buf()),
           }),
           "MultiframeTexture" => unimplemented!("use full resource definition"),
           "LocalizedImage" => unimplemented!("use full resource definition"),
@@ -244,9 +242,9 @@ async fn main() -> Result<()> {
           "SwfLibrary" => ResourceDefinition::SwfLibrary(SwfLibraryResource {
             root: Default::default(),
             info: None,
-            file: Some(path.to_path_buf())
+            file: Some(path.to_path_buf()),
           }),
-          _ => unimplemented!("{} is not implemented", kind)
+          _ => unimplemented!("{} is not implemented", kind),
         };
         definition
           .resource_mut()
@@ -324,14 +322,10 @@ async fn main() -> Result<()> {
           .init(ResourceInfo {
             name: name.clone(),
             id: id as i64,
-            version: version as i64
+            version: version as i64,
           })
           .await?;
-        debug!(
-          "read short resource definition {}: {:?}",
-          path.display(),
-          definition
-        );
+        debug!("read short resource definition {}: {:?}", path.display(), definition);
 
         resources.push(definition);
       }
@@ -340,14 +334,8 @@ async fn main() -> Result<()> {
 
   let mut proplibs = resources
     .iter()
+    .filter(|resource| matches!(resource, ResourceDefinition::Proplib(_)))
     .cloned()
-    .filter(|resource| {
-      if let ResourceDefinition::Proplib(_) = resource {
-        true
-      } else {
-        false
-      }
-    })
     .collect::<Vec<_>>();
 
   info!("validating proplibs...");
@@ -380,7 +368,7 @@ async fn main() -> Result<()> {
 
           let file = root.join(&image.diffuse);
           let file = file_exists_case_insensitive(&file);
-          if let Some(file) = &file {
+          if let Some(_file) = &file {
           } else {
             panic!("diffuse file {:?} for texture {} not exists", file, image.name);
           }
@@ -388,7 +376,7 @@ async fn main() -> Result<()> {
           if let Some(alpha) = &image.alpha {
             let file = root.join(alpha);
             let file = file_exists_case_insensitive(&file);
-            if let Some(file) = &file {
+            if let Some(_file) = &file {
             } else {
               panic!("alpha file {:?} for texture {} not exists", file, image.name);
             }
@@ -483,11 +471,7 @@ async fn main() -> Result<()> {
     }
   }
 
-  fs::write(
-    "out/00-resources.json",
-    serde_json::to_vec_pretty(&resources)?
-  )
-  .await?;
+  fs::write("out/00-resources.json", serde_json::to_vec_pretty(&resources)?).await?;
 
   let end = Instant::now();
   info!("completed in {:?}", end - start);
@@ -507,13 +491,11 @@ fn file_exists_case_insensitive<P: AsRef<Path>>(filename: P) -> Option<PathBuf> 
   let filename_str = filename.as_ref().file_name().unwrap().to_str().unwrap().to_lowercase();
   let parent_dir = filename.as_ref().parent().unwrap_or_else(|| Path::new("."));
 
-  for entry in WalkDir::new(parent_dir).max_depth(1) {
-    if let Ok(entry) = entry {
-      if entry.file_type().is_file() {
-        let entry_filename = entry.file_name().to_str().unwrap().to_lowercase();
-        if entry_filename == filename_str {
-          return Some(entry.into_path());
-        }
+  for entry in WalkDir::new(parent_dir).max_depth(1).into_iter().flatten() {
+    if entry.file_type().is_file() {
+      let entry_filename = entry.file_name().to_str().unwrap().to_lowercase();
+      if entry_filename == filename_str {
+        return Some(entry.into_path());
       }
     }
   }
@@ -521,6 +503,7 @@ fn file_exists_case_insensitive<P: AsRef<Path>>(filename: P) -> Option<PathBuf> 
   None
 }
 
+#[allow(irrefutable_let_patterns)]
 fn get_texture_map_name(main: &Main) -> Option<String> {
   if let Main::Editor(editors) = main {
     for editor in editors {

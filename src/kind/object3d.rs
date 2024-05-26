@@ -1,4 +1,5 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -12,7 +13,7 @@ use crate::kind::ResourceInfo;
 #[serde(rename = "images")]
 pub struct ImagesXml {
   #[serde(rename = "image")]
-  pub images: Vec<ImageXml>
+  pub images: Vec<ImageXml>,
 }
 
 #[derive(Debug, Serialize)]
@@ -24,14 +25,14 @@ pub struct ImageXml {
   #[serde(rename = "@alpha")]
   #[serde(skip_serializing_if = "Option::is_none")]
   #[serde(default)]
-  pub alpha: Option<String>
+  pub alpha: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Object3DImage {
   Simple(PathBuf),
-  Complex { diffuse: PathBuf, alpha: PathBuf }
+  Complex { diffuse: PathBuf, alpha: PathBuf },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -42,7 +43,7 @@ pub struct Object3DResource {
   pub info: Option<ResourceInfo>,
   pub id: Option<u32>,
   pub object: Option<PathBuf>,
-  pub images: HashMap<String, Object3DImage>
+  pub images: HashMap<String, Object3DImage>,
 }
 
 #[async_trait]
@@ -66,7 +67,7 @@ impl Resource for Object3DResource {
 
   async fn input_files(&self) -> Result<Vec<PathBuf>> {
     let mut files = vec![self.get_object()];
-    for (_, image) in &self.images {
+    for image in self.images.values() {
       match image {
         Object3DImage::Simple(diffuse) => {
           files.push(self.root.join(diffuse.clone()));
@@ -92,41 +93,24 @@ impl Resource for Object3DResource {
           .map(|(name, image)| match image {
             Object3DImage::Simple(diffuse) => ImageXml {
               name: name.clone(),
-              diffuse: diffuse
-                .clone()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-              alpha: None
+              diffuse: diffuse.clone().file_name().unwrap().to_string_lossy().to_string(),
+              alpha: None,
             },
             Object3DImage::Complex { diffuse, alpha } => ImageXml {
               name: name.clone(),
-              diffuse: diffuse
-                .clone()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-              alpha: Some(
-                alpha
-                  .clone()
-                  .file_name()
-                  .unwrap()
-                  .to_string_lossy()
-                  .to_string()
-              )
-            }
+              diffuse: diffuse.clone().file_name().unwrap().to_string_lossy().to_string(),
+              alpha: Some(alpha.clone().file_name().unwrap().to_string_lossy().to_string()),
+            },
           })
-          .collect()
+          .collect(),
       })?
-      .into_bytes()
+      .into_bytes(),
     );
 
     for file in self.input_files().await? {
       files.insert(
         file.file_name().unwrap().to_str().unwrap().to_owned(),
-        fs::read(file).await.unwrap()
+        fs::read(file).await.unwrap(),
       );
     }
 

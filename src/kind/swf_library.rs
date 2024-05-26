@@ -1,4 +1,5 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -14,7 +15,7 @@ pub struct SwfLibraryResource {
   pub root: PathBuf,
   #[serde(skip_deserializing)]
   pub info: Option<ResourceInfo>,
-  pub file: Option<PathBuf>
+  pub file: Option<PathBuf>,
 }
 
 #[async_trait]
@@ -43,7 +44,7 @@ impl Resource for SwfLibraryResource {
   async fn output_files(&self) -> Result<HashMap<String, Vec<u8>>> {
     Ok(HashMap::from([(
       "library.swf".to_owned(),
-      fs::read(self.get_library()).await.unwrap()
+      fs::read(self.get_library()).await.unwrap(),
     )]))
   }
 }
