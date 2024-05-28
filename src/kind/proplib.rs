@@ -123,7 +123,14 @@ pub struct Prop {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Sprite {}
+pub struct Sprite {
+  #[serde(rename = "@file")]
+  pub file: String,
+  #[serde(rename = "@origin-y")]
+  pub originY: Option<f32>,
+  #[serde(rename = "@scale")]
+  pub scale: Option<f32>,
+}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Mesh {

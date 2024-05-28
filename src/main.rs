@@ -30,7 +30,7 @@ use crc::{Crc, CRC_32_ISO_HDLC};
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info, trace};
+use tracing::{debug, info, trace, error};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
@@ -378,6 +378,7 @@ async fn main() -> Result<()> {
           let file = file_exists_case_insensitive(&file);
           if let Some(_file) = &file {
           } else {
+            error!("proplib: {:?}", resource.get_info());
             panic!("diffuse file {:?} for texture {} not exists", file, image.name);
           }
 

@@ -258,6 +258,8 @@ impl Resource for MapResource {
     };
 
     let parsed = self.parsed.as_ref().unwrap();
+    info!("static geometry: {} props", parsed.static_geometry.props.len());
+    info!("collision geometry: {} boxes, {} planes, {} triangles", parsed.collision_geometry.boxes.len(), parsed.collision_geometry.planes.len(), parsed.collision_geometry.triangles.len());
     Ok(HashMap::from([
       (
         "map.xml".to_owned(),
@@ -370,7 +372,7 @@ impl MapResource {
             let mesh_file = root.join(&mesh.file);
             let mesh_file = file_exists_case_insensitive(&mesh_file);
 
-            info!("texture-name: {:?}, prop: {:?}", map_prop.texture_name, prop.name);
+            // info!("texture-name: {:?}, prop: {:?}", map_prop.texture_name, prop.name);
             let (texture_name, texture) = if !map_prop.texture_name.is_empty() {
               (
                 map_prop.texture_name.to_owned(),
@@ -454,10 +456,12 @@ impl MapResource {
                 }
                 continue 'prop;
               } else {
-                info!("texture_file: {:?}", texture.diffuse_map);
+                // info!("texture_file: {:?}", texture.diffuse_map);
                 let file = root.join(&texture.diffuse_map);
                 let file = file_exists_case_insensitive(&file);
                 if let Some(_file) = &file {} else {
+                  error!("prop: {:?}", map_prop);
+                  error!("texture: {:?}", texture);
                   panic!("diffuse file {:?} for texture {} not exists", file, texture_name);
                 }
                 continue 'prop;
@@ -480,6 +484,51 @@ impl MapResource {
             // for texture in &mesh.textures {
             //   info!("texture {:?}", texture);
             // }
+          } else if let Some(sprite) = &prop.sprite {
+            if let Some(images) = &proplib.images {
+              let image = images
+                .images
+                .iter()
+                .find(|image| image.name.to_lowercase() == sprite.file.to_lowercase());
+              // info!("texture_file: {:?}", image);
+              if let Some(image) = image {
+                // info!("{:?}", image);
+
+                let file = root.join(&image.diffuse);
+                let file = file_exists_case_insensitive(&file);
+                if let Some(_file) = &file {} else {
+                  panic!("diffuse file {:?} for sprite {} not exists", file, image.name);
+                }
+
+                if let Some(alpha) = &image.alpha {
+                  let file = root.join(alpha);
+                  let file = file_exists_case_insensitive(&file);
+                  if let Some(_file) = &file {} else {
+                    panic!("alpha file {:?} for sprite {} not exists", file, image.name);
+                  }
+                }
+              } else {
+                error!("images: {:?}", images);
+                panic!(
+                  "texture mapping for sprite {:?} not exists for prop {}/{}/{}",
+                  sprite, library.name, group.name, prop.name
+                );
+              }
+              continue 'prop;
+            } else {
+              let file = root.join(&sprite.file);
+              let file = file_exists_case_insensitive(&file);
+              if let Some(_file) = &file {
+                continue 'prop;
+              } else {
+                panic!(
+                  "sprite {}/{}/{} file {:?} not exists",
+                  library.name, group.name, prop.name, sprite.file
+                );
+              }
+            }
+          } else {
+            unreachable!();
           }
         } else {
           panic!("prop {:?} not found", map_prop);
