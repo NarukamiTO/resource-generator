@@ -114,6 +114,8 @@ async fn main() -> Result<()> {
       continue;
     }
 
+    let namespaces = get_namespaces(path).await;
+
     // Read full definitions
     if path.is_dir() {
       let definition_path = path.join(RESOURCE_DEFINITION_FILE);
@@ -130,6 +132,7 @@ async fn main() -> Result<()> {
         .strip_prefix(root)?
         .components()
         .map(|component| component.as_os_str().to_str().unwrap())
+        .filter(|component| !component.starts_with("@"))
         .collect::<Vec<_>>()
         .join(".");
       let mut id = CRC.checksum(name.as_bytes());
@@ -138,6 +141,7 @@ async fn main() -> Result<()> {
           id = forced_id;
         }
       }
+      info!(?name, ?id, ?namespaces, "resource");
 
       let mut raw_input_files = definition.resource().input_files().await?;
       raw_input_files.push(definition_path.clone());
@@ -200,6 +204,7 @@ async fn main() -> Result<()> {
           name: name.clone(),
           id: id as i64,
           version: version as i64,
+          namespaces: namespaces.clone(),
         })
         .await?;
       debug!(
@@ -256,11 +261,13 @@ async fn main() -> Result<()> {
           .unwrap()
           .components()
           .map(|component| component.as_os_str().to_str().unwrap())
+          .filter(|component| !component.starts_with("@"))
           .collect::<Vec<_>>()
           .join(".")
           + "."
           + name;
         let id = CRC.checksum(path.to_string_lossy().to_string().as_bytes());
+        info!(?name, ?id, ?namespaces, "resource");
 
         let mut raw_input_files = definition.resource().input_files().await?;
         raw_input_files.push(path.to_owned());
@@ -323,6 +330,7 @@ async fn main() -> Result<()> {
             name: name.clone(),
             id: id as i64,
             version: version as i64,
+            namespaces: namespaces.clone(),
           })
           .await?;
         debug!("read short resource definition {}: {:?}", path.display(), definition);
@@ -521,4 +529,24 @@ fn get_texture_map_name(main: &Main) -> Option<String> {
     }
   }
   None
+}
+
+async fn get_namespaces(path: &Path) -> HashMap<String, String> {
+  let mut namespaces = HashMap::new();
+
+  for component in path.components() {
+    if let Some(comp_str) = component.as_os_str().to_str() {
+      // Check if the component matches the pattern @key=value
+      if comp_str.starts_with('@') {
+        let parts: Vec<&str> = comp_str[1..].split('=').collect();
+        if parts.len() == 2 {
+          let key = parts[0].to_string();
+          let value = parts[1].to_string();
+          namespaces.insert(key, value);
+        }
+      }
+    }
+  }
+
+  namespaces
 }

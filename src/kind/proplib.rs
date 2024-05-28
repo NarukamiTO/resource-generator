@@ -28,6 +28,7 @@ pub struct ProplibResource {
   #[serde(skip_deserializing)]
   pub name: Option<String>,
 
+  #[deprecated]
   pub namespace: Option<String>,
 
   #[serde(skip)]

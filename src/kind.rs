@@ -30,6 +30,7 @@ pub struct ResourceInfo {
   pub name: String,
   pub id: i64,
   pub version: i64,
+  pub namespaces: HashMap<String, String>,
 }
 
 impl ResourceInfo {
