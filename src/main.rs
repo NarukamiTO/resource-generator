@@ -135,7 +135,7 @@ async fn main() -> Result<()> {
         .filter(|component| !component.starts_with("@"))
         .collect::<Vec<_>>()
         .join(".");
-      let mut id = CRC.checksum(name.as_bytes());
+      let mut id = CRC.checksum(path.to_string_lossy().to_string().as_bytes());
       if let ResourceDefinition::Object3D(resource) = &definition {
         if let Some(forced_id) = resource.id {
           id = forced_id;
