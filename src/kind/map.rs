@@ -306,7 +306,7 @@ impl MapResource {
     for definition in resources {
       if let ResourceDefinition::Proplib(resource) = definition {
         let name = resource.name.as_ref().unwrap();
-        if proplib_names.contains(name) && self.namespace == resource.namespace {
+        if proplib_names.contains(name) {
           debug!("resolved proplib {}", name);
           self.proplibs.insert(name.clone(), definition.clone());
         }

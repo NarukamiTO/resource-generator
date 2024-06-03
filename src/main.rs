@@ -37,7 +37,7 @@ use tracing_subscriber::{EnvFilter, Layer};
 use walkdir::WalkDir;
 
 use self::kind::ResourceDefinition;
-use crate::kind::{ImageResource, Resource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource};
+use crate::kind::{ImageResource, MapResource, Resource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource};
 
 fn is_path_hidden<P: AsRef<Path>>(path: P) -> bool {
   path.as_ref().components().any(|component| {
@@ -229,7 +229,14 @@ async fn main() -> Result<()> {
             info: None,
             sound: Some(path.to_path_buf()),
           }),
-          "Map" => unimplemented!("use full resource definition"),
+          "Map" => ResourceDefinition::Map(MapResource {
+            root: Default::default(),
+            info: None,
+            map: Some(path.to_path_buf()),
+            parsed: None,
+            proplibs: Default::default(),
+            namespace: None,
+          }),
           "Proplib" => unimplemented!("use full resource definition"),
           "Texture" => ResourceDefinition::Texture(TextureResource {
             root: Default::default(),
