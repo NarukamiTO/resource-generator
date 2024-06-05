@@ -5,14 +5,16 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use proplib::Texture;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::{debug, error, info, warn};
 
-use super::{proplib, ProplibResource, Resource};
-use crate::kind::{ResourceDefinition, ResourceInfo};
+use proplib::Texture;
+
 use crate::{file_exists_case_insensitive, get_texture_map_name};
+use crate::kind::{ResourceDefinition, ResourceInfo};
+
+use super::{proplib, ProplibResource, Resource};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename = "map")]
@@ -358,6 +360,11 @@ impl MapResource {
         }
       }
 
+      // TODO: Actually this should be shared for all maps,
+      // there is no reason to check same props for each map again.
+      // library, group, prop, texture
+      let mut checked = Vec::<(String, String, String, String)>::new();
+
       let map = self.parsed.as_ref().unwrap();
       'prop: for map_prop in &map.static_geometry.props {
         if let Some((proplib, group, prop)) = props.get(&(
@@ -365,6 +372,15 @@ impl MapResource {
           map_prop.group_name.clone(),
           map_prop.name.clone(),
         )) {
+          if checked.contains(&(
+            map_prop.library_name.clone(),
+            map_prop.group_name.clone(),
+            map_prop.name.clone(),
+            map_prop.texture_name.clone()
+          )) {
+            continue;
+          }
+
           // info!("found prop {:?} in {:?}", map_prop, prop);
           let root = proplib.get_root();
           let library = proplib.library.as_ref().unwrap();
@@ -454,7 +470,6 @@ impl MapResource {
                     texture, library.name, group.name, prop.name
                   );
                 }
-                continue 'prop;
               } else {
                 // info!("texture_file: {:?}", texture.diffuse_map);
                 let file = root.join(&texture.diffuse_map);
@@ -464,8 +479,14 @@ impl MapResource {
                   error!("texture: {:?}", texture);
                   panic!("diffuse file {:?} for texture {} not exists", file, texture_name);
                 }
-                continue 'prop;
               }
+              checked.push((
+                map_prop.library_name.clone(),
+                map_prop.group_name.clone(),
+                map_prop.name.clone(),
+                map_prop.texture_name.clone()
+              ));
+              continue 'prop;
             } else {
               panic!(
                 "texture {} not exists for prop {}/{}/{}",
