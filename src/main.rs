@@ -462,6 +462,7 @@ async fn main() -> Result<()> {
     }
 
     if let ResourceDefinition::Map(resource) = definition {
+      debug!("initializing map {:?}", resource.get_info().as_ref().unwrap());
       resource.init_proplibs(&proplibs).await?;
       resource.validate_props(&proplibs).await?;
     }

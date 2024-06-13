@@ -144,11 +144,11 @@ pub struct Prop {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CollisionGeometry {
-  #[serde(rename = "collision-plane")]
+  #[serde(default, rename = "collision-plane")]
   pub planes: Vec<CollisionPlane>,
-  #[serde(rename = "collision-box")]
+  #[serde(default, rename = "collision-box")]
   pub boxes: Vec<CollisionBox>,
-  #[serde(rename = "collision-triangle")]
+  #[serde(default, rename = "collision-triangle")]
   pub triangles: Vec<CollisionTriangle>,
 }
 
