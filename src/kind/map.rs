@@ -104,7 +104,7 @@ pub struct BonusRegion {
   pub max: Vector3,
   #[serde(rename = "bonus-type")]
   pub kinds: Vec<String>,
-  #[serde(default, rename = "bonus-type")]
+  #[serde(default, rename = "game-mode")]
   pub modes: Vec<String>,
 }
 
