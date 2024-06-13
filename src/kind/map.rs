@@ -25,6 +25,8 @@ pub struct MapXml {
   pub collision_geometry: CollisionGeometry,
   #[serde(default, rename = "spawn-points")]
   pub spawn_points: SpawnPoints,
+  #[serde(default, rename = "bonus-regions")]
+  pub bonus_regions: BonusRegions
 }
 
 impl MapXml {
@@ -42,6 +44,12 @@ impl MapXml {
         .spawn_points
         .iter()
         .map(|point| point.as_private())
+        .collect(),
+      bonus_regions: self
+        .bonus_regions
+        .bonus_regions
+        .iter()
+        .map(|region| region.as_private())
         .collect(),
       proplibs: proplibs
         .iter()
@@ -64,7 +72,54 @@ pub struct PublicMap<'a> {
 pub struct PrivateMap<'a> {
   #[serde(rename = "spawn-points")]
   pub spawn_points: Vec<PrivateSpawnPoint<'a>>,
+  #[serde(rename = "bonus-regions")]
+  pub bonus_regions: Vec<PrivateBonusRegion<'a>>,
   pub proplibs: Vec<ResourceInfo>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct PrivateBonusRegion<'a> {
+  pub name: &'a str,
+  pub position: Vector3,
+  pub rotation: Vector3,
+  pub min: Vector3,
+  pub max: Vector3,
+  pub kinds: &'a [String],
+  pub modes: &'a [String],
+}
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct BonusRegions {
+  #[serde(rename = "bonus-region")]
+  pub bonus_regions: Vec<BonusRegion>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BonusRegion {
+  #[serde(rename = "@name")]
+  pub name: String,
+  pub position: Vector3,
+  pub rotation: Vector3,
+  pub min: Vector3,
+  pub max: Vector3,
+  #[serde(rename = "bonus-type")]
+  pub kinds: Vec<String>,
+  #[serde(default, rename = "bonus-type")]
+  pub modes: Vec<String>,
+}
+
+impl BonusRegion {
+  fn as_private(&self) -> PrivateBonusRegion {
+    PrivateBonusRegion {
+      name: &self.name,
+      position: self.position.clone(),
+      rotation: self.rotation.clone(),
+      min: self.min.clone(),
+      max: self.max.clone(),
+      kinds: &self.kinds,
+      modes: &self.modes
+    }
+  }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
