@@ -26,7 +26,9 @@ pub struct MapXml {
   #[serde(default, rename = "spawn-points")]
   pub spawn_points: SpawnPoints,
   #[serde(default, rename = "bonus-regions")]
-  pub bonus_regions: BonusRegions
+  pub bonus_regions: BonusRegions,
+  #[serde(default, rename = "ctf-flags")]
+  pub ctf_flags: Option<CtfFlags>,
 }
 
 impl MapXml {
@@ -51,6 +53,10 @@ impl MapXml {
         .iter()
         .map(|region| region.as_private())
         .collect(),
+      ctf_flags: self
+        .ctf_flags
+        .as_ref()
+        .map(|flags| flags.as_private()),
       proplibs: proplibs
         .iter()
         .map(|(_, definition)| definition.resource().get_info().as_ref().unwrap().clone())
@@ -74,6 +80,8 @@ pub struct PrivateMap<'a> {
   pub spawn_points: Vec<PrivateSpawnPoint<'a>>,
   #[serde(rename = "bonus-regions")]
   pub bonus_regions: Vec<PrivateBonusRegion<'a>>,
+  #[serde(rename = "ctf-flags")]
+  pub ctf_flags: Option<PrivateCtfFlags>,
   pub proplibs: Vec<ResourceInfo>,
 }
 
@@ -186,6 +194,29 @@ pub struct CollisionTriangle {
 pub struct SpawnPoints {
   #[serde(rename = "spawn-point")]
   pub spawn_points: Vec<SpawnPoint>,
+}
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct CtfFlags {
+  #[serde(rename = "flag-blue")]
+  pub blue: Vector3,
+  #[serde(rename = "flag-red")]
+  pub red: Vector3,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct PrivateCtfFlags {
+  pub blue: Vector3,
+  pub red: Vector3,
+}
+
+impl CtfFlags {
+  fn as_private(&self) -> PrivateCtfFlags {
+    PrivateCtfFlags {
+      blue: self.blue.clone(),
+      red: self.red.clone(),
+    }
+  }
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
