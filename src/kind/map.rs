@@ -29,6 +29,8 @@ pub struct MapXml {
   pub bonus_regions: BonusRegions,
   #[serde(default, rename = "ctf-flags")]
   pub ctf_flags: Option<CtfFlags>,
+  #[serde(default, rename = "dom-keypoints")]
+  pub dom_keypoints: Option<DomKeypoints>,
 }
 
 impl MapXml {
@@ -57,6 +59,17 @@ impl MapXml {
         .ctf_flags
         .as_ref()
         .map(|flags| flags.as_private()),
+      dom_keypoints: self
+        .dom_keypoints
+        .as_ref()
+        .map(|keypoints| {
+          keypoints
+            .dom_keypoints
+            .iter()
+            .map(|keypoint| keypoint.as_private())
+            .collect()
+        })
+        .unwrap_or_default(),
       proplibs: proplibs
         .iter()
         .map(|(_, definition)| definition.resource().get_info().as_ref().unwrap().clone())
@@ -82,6 +95,8 @@ pub struct PrivateMap<'a> {
   pub bonus_regions: Vec<PrivateBonusRegion<'a>>,
   #[serde(rename = "ctf-flags")]
   pub ctf_flags: Option<PrivateCtfFlags>,
+  #[serde(rename = "dom-keypoints")]
+  pub dom_keypoints: Vec<PrivateDomKeypoint>,
   pub proplibs: Vec<ResourceInfo>,
 }
 
@@ -215,6 +230,34 @@ impl CtfFlags {
     PrivateCtfFlags {
       blue: self.blue.clone(),
       red: self.red.clone(),
+    }
+  }
+}
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct DomKeypoints {
+  #[serde(rename = "dom-keypoint")]
+  pub dom_keypoints: Vec<DomKeypoint>,
+}
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct DomKeypoint {
+  #[serde(default, rename = "@name")]
+  pub name: String,
+  pub position: Vector3,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct PrivateDomKeypoint {
+  pub name: String,
+  pub position: Vector3,
+}
+
+impl DomKeypoint {
+  fn as_private(&self) -> PrivateDomKeypoint {
+    PrivateDomKeypoint {
+      name: self.name.clone(),
+      position: self.position.clone(),
     }
   }
 }
