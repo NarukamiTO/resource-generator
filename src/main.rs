@@ -1,10 +1,10 @@
 /*
- * Araumi TO - Resource server reimplementation for a certain browser tank game.
- * Copyright (C) 2023  Daniil Pryima
+ * Araumi TO - a server software reimplementation for a certain browser tank game.
+ * Copyright (c) 2023-2025  Daniil Pryima
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
