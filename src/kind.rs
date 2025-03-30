@@ -1,4 +1,5 @@
 mod image;
+mod localization;
 mod localized_image;
 mod map;
 mod multiframe_texture;
@@ -16,6 +17,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize, Serializer};
 
 pub use self::image::*;
+pub use self::localization::*;
 pub use self::localized_image::*;
 pub use self::map::*;
 pub use self::multiframe_texture::*;
@@ -58,8 +60,10 @@ pub enum ResourceDefinition {
   MultiframeTexture(MultiframeTextureResource),
   // ScalableImage, // Missing in old client
   LocalizedImage(LocalizedImageResource),
-  Object3D(Object3DResource), // Effects, // Unused
-                              // RawData // Unused
+  Object3D(Object3DResource),
+  // Effects (unused)
+  // RawData (unused)
+  Localization(LocalizationResource),
 }
 
 impl ResourceDefinition {
@@ -74,6 +78,7 @@ impl ResourceDefinition {
       ResourceDefinition::MultiframeTexture(resource) => resource,
       ResourceDefinition::LocalizedImage(resource) => resource,
       ResourceDefinition::Object3D(resource) => resource,
+      ResourceDefinition::Localization(resource) => resource,
     }
   }
 
@@ -88,6 +93,7 @@ impl ResourceDefinition {
       ResourceDefinition::MultiframeTexture(resource) => resource,
       ResourceDefinition::LocalizedImage(resource) => resource,
       ResourceDefinition::Object3D(resource) => resource,
+      ResourceDefinition::Localization(resource) => resource,
     }
   }
 }
@@ -118,7 +124,7 @@ pub enum ResourceKind {
   LocalizedImage,
   Object3D,
   Effects, // Unused
-  RawData // Unused
+  RawData, // Unused
 }
 
 impl From<&ResourceKind> for i32 {

@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.72"
 araumi-3ds = { git = "https://github.com/AraumiTO/3ds", version = "0.1.0" }
-araumi_protocol = { git = "https://github.com/AraumiTO/protocol", rev = "c281465", features = ["derive"] }
+araumi_protocol = { features = ["derive"], path = "../protocol-rs", version = "0.1.1" }
 async-trait = "0.1.72"
 crc = "3.0.1"
 git2 = "0.17.2"

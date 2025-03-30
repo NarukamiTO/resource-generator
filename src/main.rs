@@ -30,14 +30,16 @@ use crc::{Crc, CRC_32_ISO_HDLC};
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info, trace, error};
+use tracing::{debug, error, info, trace, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 use walkdir::WalkDir;
 
 use self::kind::ResourceDefinition;
-use crate::kind::{ImageResource, MapResource, Resource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource};
+use crate::kind::{
+  ImageResource, MapResource, Resource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource,
+};
 
 fn is_path_hidden<P: AsRef<Path>>(path: P) -> bool {
   path.as_ref().components().any(|component| {
@@ -125,7 +127,7 @@ async fn main() -> Result<()> {
 
       let definition = fs::read_to_string(&definition_path).await.unwrap();
       let mut definition: ResourceDefinition = serde_yaml::from_str(&definition)
-        .unwrap_or_else(|_| panic!("failed to read definition {}", definition_path.display()));
+        .unwrap_or_else(|error| panic!("failed to read definition {}: {error}", definition_path.display()));
       definition.resource_mut().init_root(path.to_path_buf());
 
       let name = path
@@ -141,7 +143,7 @@ async fn main() -> Result<()> {
           id = forced_id;
         }
       }
-      info!(?name, ?id, ?namespaces, "resource");
+      debug!(?name, ?id, ?namespaces, "resource");
 
       let mut raw_input_files = definition.resource().input_files().await?;
       raw_input_files.push(definition_path.clone());
@@ -179,11 +181,15 @@ async fn main() -> Result<()> {
         }
       }
 
-      if !changed {
-        debug!("skipping {} as no files have been changed", name);
-        mtime_skip_files += 1;
-        unchanged_resources.insert(id as i64);
-        // continue;
+      if name.contains("localization") {
+        warn!("regenerate localization {}", name);
+      } else {
+        if !changed {
+          debug!("skipping {} as no files have been changed", name);
+          mtime_skip_files += 1;
+          unchanged_resources.insert(id as i64);
+          // continue;
+        }
       }
 
       let mut digest = CRC.digest();
@@ -274,7 +280,7 @@ async fn main() -> Result<()> {
           + "."
           + name;
         let id = CRC.checksum(path.to_string_lossy().to_string().as_bytes());
-        info!(?name, ?id, ?namespaces, "resource");
+        debug!(?name, ?id, ?namespaces, "resource");
 
         let mut raw_input_files = definition.resource().input_files().await?;
         raw_input_files.push(path.to_owned());
@@ -379,7 +385,7 @@ async fn main() -> Result<()> {
 
       if let Some(images) = &resource.images {
         for image in &images.images {
-          info!("{:?}", image);
+          trace!("{:?}", image);
 
           let file = root.join(&image.diffuse);
           let file = file_exists_case_insensitive(&file);
@@ -472,7 +478,12 @@ async fn main() -> Result<()> {
     // .join(info.id.to_string())
     // .join(info.version.to_string());
     if path.try_exists()? {
-      continue;
+      warn!(
+        "skipping {:?} ({}) as directory already exists, cache is probably corrupt",
+        info,
+        path.display()
+      );
+      // continue;
     }
 
     fs::create_dir_all(&path).await?;
