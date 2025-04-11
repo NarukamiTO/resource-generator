@@ -1,10 +1,16 @@
-<div align="center">
+# Narukami Resource Generator
 
-# Araumi TO
+Resource generator for a certain browser tank game.
+It generates resource files for game from a human-editable source files.
 
-Resource server reimplementation for a certain browser tank game.
+## Usage
 
-</div>
+Resources are read from the `resources` directory.
+Generated files are written to the `out` directory.
+
+```sh
+RUST_LOG=info cargo run --release
+```
 
 ## License
 

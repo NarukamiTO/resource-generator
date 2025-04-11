@@ -1,12 +1,10 @@
-# JetBrains IDEs
-.idea
+# IDEs
+/.idea
+/.vscode
 
-# Build artifacts
-target
-build
-cmake-build-*
+# Artifacts
+/target
 
-# Secrets
-.env
-
-out/
+# Resources
+/resources
+/out

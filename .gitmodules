@@ -1,4 +1,0 @@
-[submodule "resources"]
-	path = resources
-	url = https://github.com/AraumiTO/GameResources.git
-	branch = v3
