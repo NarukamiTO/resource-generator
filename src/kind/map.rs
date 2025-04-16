@@ -23,16 +23,15 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use proplib::Texture;
 use serde::{Deserialize, Serialize};
+use threedee::Parser3DS;
 use tokio::fs;
 use tracing::{debug, error, info, warn};
 
-use proplib::Texture;
-
-use crate::{file_exists_case_insensitive, get_texture_map_name};
-use crate::kind::{ResourceDefinition, ResourceInfo};
-
 use super::{proplib, ProplibResource, Resource};
+use crate::kind::{ResourceDefinition, ResourceInfo};
+use crate::{file_exists_case_insensitive, get_texture_map_name};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename = "map")]
@@ -73,10 +72,7 @@ impl MapXml {
         .iter()
         .map(|region| region.as_private())
         .collect(),
-      ctf_flags: self
-        .ctf_flags
-        .as_ref()
-        .map(|flags| flags.as_private()),
+      ctf_flags: self.ctf_flags.as_ref().map(|flags| flags.as_private()),
       dom_keypoints: self
         .dom_keypoints
         .as_ref()
@@ -158,7 +154,7 @@ impl BonusRegion {
       min: self.min.clone(),
       max: self.max.clone(),
       kinds: &self.kinds,
-      modes: &self.modes
+      modes: &self.modes,
     }
   }
 }
@@ -408,7 +404,12 @@ impl Resource for MapResource {
 
     let parsed = self.parsed.as_ref().unwrap();
     info!("static geometry: {} props", parsed.static_geometry.props.len());
-    info!("collision geometry: {} boxes, {} planes, {} triangles", parsed.collision_geometry.boxes.len(), parsed.collision_geometry.planes.len(), parsed.collision_geometry.triangles.len());
+    info!(
+      "collision geometry: {} boxes, {} planes, {} triangles",
+      parsed.collision_geometry.boxes.len(),
+      parsed.collision_geometry.planes.len(),
+      parsed.collision_geometry.triangles.len()
+    );
     Ok(HashMap::from([
       (
         "map.xml".to_owned(),
@@ -479,7 +480,8 @@ impl MapResource {
     for definition in resources {
       if let ResourceDefinition::Proplib(resource) = definition {
         let namespaces = &resource.get_info().as_ref().unwrap().namespaces;
-        versions.entry(namespaces.iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect())
+        versions
+          .entry(namespaces.iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect())
           .or_insert_with(Vec::new)
           .push(resource);
       }
@@ -523,7 +525,7 @@ impl MapResource {
             map_prop.library_name.clone(),
             map_prop.group_name.clone(),
             map_prop.name.clone(),
-            map_prop.texture_name.clone()
+            map_prop.texture_name.clone(),
           )) {
             continue;
           }
@@ -549,7 +551,7 @@ impl MapResource {
               if let Some(mesh_file) = &mesh_file {
                 let data = fs::read(mesh_file).await.unwrap();
                 let mut data = Cursor::new(data.as_slice());
-                let mut parser = araumi_3ds::Parser3DS::new(&mut data);
+                let mut parser = Parser3DS::new(&mut data);
                 let main = &parser.read_main()[0];
                 let default_texture = get_texture_map_name(main);
                 if let Some(default_texture) = &default_texture {
@@ -599,14 +601,16 @@ impl MapResource {
 
                   let file = root.join(&image.diffuse);
                   let file = file_exists_case_insensitive(&file);
-                  if let Some(_file) = &file {} else {
+                  if let Some(_file) = &file {
+                  } else {
                     panic!("diffuse file {:?} for texture {} not exists", file, image.name);
                   }
 
                   if let Some(alpha) = &image.alpha {
                     let file = root.join(alpha);
                     let file = file_exists_case_insensitive(&file);
-                    if let Some(_file) = &file {} else {
+                    if let Some(_file) = &file {
+                    } else {
                       panic!("alpha file {:?} for texture {} not exists", file, image.name);
                     }
                   }
@@ -621,7 +625,8 @@ impl MapResource {
                 // info!("texture_file: {:?}", texture.diffuse_map);
                 let file = root.join(&texture.diffuse_map);
                 let file = file_exists_case_insensitive(&file);
-                if let Some(_file) = &file {} else {
+                if let Some(_file) = &file {
+                } else {
                   error!("prop: {:?}", map_prop);
                   error!("texture: {:?}", texture);
                   panic!("diffuse file {:?} for texture {} not exists", file, texture_name);
@@ -631,7 +636,7 @@ impl MapResource {
                 map_prop.library_name.clone(),
                 map_prop.group_name.clone(),
                 map_prop.name.clone(),
-                map_prop.texture_name.clone()
+                map_prop.texture_name.clone(),
               ));
               continue 'prop;
             } else {
@@ -664,14 +669,16 @@ impl MapResource {
 
                 let file = root.join(&image.diffuse);
                 let file = file_exists_case_insensitive(&file);
-                if let Some(_file) = &file {} else {
+                if let Some(_file) = &file {
+                } else {
                   panic!("diffuse file {:?} for sprite {} not exists", file, image.name);
                 }
 
                 if let Some(alpha) = &image.alpha {
                   let file = root.join(alpha);
                   let file = file_exists_case_insensitive(&file);
-                  if let Some(_file) = &file {} else {
+                  if let Some(_file) = &file {
+                  } else {
                     panic!("alpha file {:?} for sprite {} not exists", file, image.name);
                   }
                 }

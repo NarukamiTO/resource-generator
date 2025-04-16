@@ -25,8 +25,8 @@ use std::sync::Arc;
 use std::time::{Instant, UNIX_EPOCH};
 
 use anyhow::Result;
-use araumi_3ds::{Editor, Main, Material, MaterialTextureMap};
 use crc::{Crc, CRC_32_ISO_HDLC};
+use threedee::{Editor, Main, Material, MaterialTextureMap};
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;

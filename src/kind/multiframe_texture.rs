@@ -20,9 +20,9 @@ use std::collections::HashMap;
 use std::io::{self, Cursor};
 use std::path::PathBuf;
 
+use alternativa_protocol::protocol_buffer::{FinalCodec, ProtocolBuffer};
+use alternativa_protocol::Codec;
 use anyhow::Result;
-use araumi_protocol::protocol_buffer::{FinalCodec, ProtocolBuffer};
-use araumi_protocol::Codec;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tara::TaraArchive;
