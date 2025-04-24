@@ -53,8 +53,6 @@ pub struct ProplibResource {
   pub library: Option<Library>,
   #[serde(skip)]
   pub images: Option<Images>,
-  #[serde(skip)]
-  pub used_files: Vec<PathBuf>,
 }
 
 #[async_trait]
@@ -140,12 +138,13 @@ pub struct Prop {
   pub sprite: Option<Sprite>,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct Sprite {
   #[serde(rename = "@file")]
   pub file: String,
   #[serde(rename = "@origin-y")]
-  pub originY: Option<f32>,
+  pub origin_y: Option<f32>,
   #[serde(rename = "@scale")]
   pub scale: Option<f32>,
 }

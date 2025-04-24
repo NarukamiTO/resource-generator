@@ -183,13 +183,11 @@ async fn main() -> Result<()> {
 
       if name.contains("localization") {
         warn!("regenerate localization {}", name);
-      } else {
-        if !changed {
-          debug!("skipping {} as no files have been changed", name);
-          mtime_skip_files += 1;
-          unchanged_resources.insert(id as i64);
-          // continue;
-        }
+      } else if !changed {
+        debug!("skipping {} as no files have been changed", name);
+        mtime_skip_files += 1;
+        unchanged_resources.insert(id as i64);
+        // continue;
       }
 
       let mut digest = CRC.digest();
@@ -225,7 +223,7 @@ async fn main() -> Result<()> {
     // Read short definitions
     if path.is_file() {
       let file_name = path.file_name().unwrap().to_str().unwrap();
-      let (file_name, extension) = file_name.rsplit_once('.').unwrap_or((&file_name, ""));
+      let (file_name, extension) = file_name.rsplit_once('.').unwrap_or((file_name, ""));
       if let Some((name, kind)) = file_name.rsplit_once('@') {
         debug!(?name, ?kind, ?extension, "discovered short resource");
 
@@ -364,7 +362,7 @@ async fn main() -> Result<()> {
     if let ResourceDefinition::Proplib(resource) = definition {
       let root = resource.get_root();
 
-      for entry in WalkDir::new(&resource.get_root()) {
+      for entry in WalkDir::new(resource.get_root()) {
         let entry = entry?;
         if entry.file_type().is_dir() {
           continue;
@@ -557,8 +555,8 @@ async fn get_namespaces(path: &Path) -> HashMap<String, String> {
   for component in path.components() {
     if let Some(comp_str) = component.as_os_str().to_str() {
       // Check if the component matches the pattern @key=value
-      if comp_str.starts_with('@') {
-        let parts: Vec<&str> = comp_str[1..].split('=').collect();
+      if let Some(namespace) = comp_str.strip_prefix('@') {
+        let parts: Vec<&str> = namespace.split('=').collect();
         if parts.len() == 2 {
           let key = parts[0].to_string();
           let value = parts[1].to_string();

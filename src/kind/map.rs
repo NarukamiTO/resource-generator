@@ -482,7 +482,7 @@ impl MapResource {
         let namespaces = &resource.get_info().as_ref().unwrap().namespaces;
         versions
           .entry(namespaces.iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect())
-          .or_insert_with(Vec::new)
+          .or_default()
           .push(resource);
       }
     }
@@ -547,45 +547,43 @@ impl MapResource {
                   .find(|texture| texture.name == map_prop.texture_name)
                   .cloned(),
               )
-            } else {
-              if let Some(mesh_file) = &mesh_file {
-                let data = fs::read(mesh_file).await.unwrap();
-                let mut data = Cursor::new(data.as_slice());
-                let mut parser = Parser3DS::new(&mut data);
-                let main = &parser.read_main()[0];
-                let default_texture = get_texture_map_name(main);
-                if let Some(default_texture) = &default_texture {
-                  (
-                    default_texture.to_owned(),
-                    Some(Texture {
-                      name: default_texture.to_owned(),
-                      diffuse_map: default_texture.to_owned(),
-                    }),
-                  )
+            } else if let Some(mesh_file) = &mesh_file {
+              let data = fs::read(mesh_file).await.unwrap();
+              let mut data = Cursor::new(data.as_slice());
+              let mut parser = Parser3DS::new(&mut data);
+              let main = &parser.read_main()[0];
+              let default_texture = get_texture_map_name(main);
+              if let Some(default_texture) = &default_texture {
+                (
+                  default_texture.to_owned(),
+                  Some(Texture {
+                    name: default_texture.to_owned(),
+                    diffuse_map: default_texture.to_owned(),
+                  }),
+                )
 
-                  // let default_file = file_exists_case_insensitive(root.join(default_texture));
-                  // if let Some(default_file) = &default_file {
-                  //   // info!("{:?}", default_file);
-                  //   (default_texture.to_owned(), Some(Texture {
-                  //     name: default_texture.to_owned(),
-                  //     diffuse_map: default_texture.to_string_lossy().into_owned()
-                  //   }))
-                  // } else {
-                  //   (default_texture.to_owned(), None)
-                  //   // panic!("mesh {}/{}/{} ({:?}) default texture {} not exists", library.name, group.name, prop.name, mesh_file, default_texture);
-                  // }
-                } else {
-                  panic!(
-                    "mesh {}/{}/{} ({:?}) has no default texture map",
-                    library.name, group.name, prop.name, mesh_file
-                  );
-                }
+                // let default_file = file_exists_case_insensitive(root.join(default_texture));
+                // if let Some(default_file) = &default_file {
+                //   // info!("{:?}", default_file);
+                //   (default_texture.to_owned(), Some(Texture {
+                //     name: default_texture.to_owned(),
+                //     diffuse_map: default_texture.to_string_lossy().into_owned()
+                //   }))
+                // } else {
+                //   (default_texture.to_owned(), None)
+                //   // panic!("mesh {}/{}/{} ({:?}) default texture {} not exists", library.name, group.name, prop.name, mesh_file, default_texture);
+                // }
               } else {
                 panic!(
-                  "mesh {}/{}/{} file {:?} not exists",
+                  "mesh {}/{}/{} ({:?}) has no default texture map",
                   library.name, group.name, prop.name, mesh_file
                 );
               }
+            } else {
+              panic!(
+                "mesh {}/{}/{} file {:?} not exists",
+                library.name, group.name, prop.name, mesh_file
+              );
             };
             // info!("texture {}: {:?}", texture_name, texture);
 
