@@ -1,0 +1,85 @@
+name: Build and release
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            intermediate_bin: resource-generator
+            bin: resource-generator-x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            intermediate_bin: resource-generator
+            bin: resource-generator-aarch64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            intermediate_bin: resource-generator.exe
+            bin: resource-generator-x86_64-pc-windows-msvc.exe
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Cache Cargo output
+        uses: Swatinem/rust-cache@v2
+
+      # - name: Verify formatting
+      #   run: cargo fmt -- --check
+
+      # - name: Run Clippy
+      #   run: cargo clippy -- -D warnings
+
+      - name: Build (release)
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Run tests
+        run: cargo test --release --target ${{ matrix.target }}
+
+      - name: Prepare build artifacts
+        run: |
+          mv target/${{ matrix.target }}/release/${{ matrix.intermediate_bin }} ${{ matrix.bin }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.bin }}
+          path: ${{ matrix.bin }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: ${{ always() && !failure() && !cancelled() }}
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+
+      - name: List files
+        run: |
+          ls -l
+          ls -l release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: release/*/*
+          fail_on_unmatched_files: true
