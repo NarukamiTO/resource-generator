@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+mod game_object;
 mod image;
 mod localization;
 mod localized_image;
@@ -34,6 +35,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize, Serializer};
 
+pub use self::game_object::*;
 pub use self::image::*;
 pub use self::localization::*;
 pub use self::localized_image::*;
@@ -82,6 +84,7 @@ pub enum ResourceDefinition {
   // Effects (unused)
   // RawData (unused)
   Localization(LocalizationResource),
+  GameObject(GameObjectResource),
 }
 
 impl ResourceDefinition {
@@ -97,6 +100,7 @@ impl ResourceDefinition {
       ResourceDefinition::LocalizedImage(resource) => resource,
       ResourceDefinition::Object3D(resource) => resource,
       ResourceDefinition::Localization(resource) => resource,
+      ResourceDefinition::GameObject(resource) => resource,
     }
   }
 
@@ -112,6 +116,7 @@ impl ResourceDefinition {
       ResourceDefinition::LocalizedImage(resource) => resource,
       ResourceDefinition::Object3D(resource) => resource,
       ResourceDefinition::Localization(resource) => resource,
+      ResourceDefinition::GameObject(resource) => resource,
     }
   }
 }

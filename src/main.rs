@@ -38,7 +38,8 @@ use walkdir::WalkDir;
 
 use self::kind::ResourceDefinition;
 use crate::kind::{
-  ImageResource, MapResource, Resource, ResourceInfo, SoundResource, SwfLibraryResource, TextureResource,
+  GameObjectResource, ImageResource, MapResource, Resource, ResourceInfo, SoundResource, SwfLibraryResource,
+  TextureResource,
 };
 
 fn is_path_hidden<P: AsRef<Path>>(path: P) -> bool {
@@ -256,6 +257,11 @@ async fn main() -> Result<()> {
           "LocalizedImage" => unimplemented!("use full resource definition"),
           "Object3D" => unimplemented!("use full resource definition"),
           "SwfLibrary" => ResourceDefinition::SwfLibrary(SwfLibraryResource {
+            root: Default::default(),
+            info: None,
+            file: Some(path.to_path_buf()),
+          }),
+          "GameObject" => ResourceDefinition::GameObject(GameObjectResource {
             root: Default::default(),
             info: None,
             file: Some(path.to_path_buf()),
